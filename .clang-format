@@ -1,0 +1,9 @@
+BasedOnStyle: LLVM
+IndentWidth: 4
+ColumnLimit: 90
+SpacesBeforeTrailingComments: 2
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+CommentPragmas: '^ IWYU:'
+DerivePointerAlignment: false
+SortIncludes: false
+SortUsingDeclarations: false

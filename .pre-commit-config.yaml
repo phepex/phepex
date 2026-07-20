@@ -1,0 +1,22 @@
+# Pre-commit hooks for phepex.
+#   install:      pip install pre-commit && pre-commit install
+#   run on all:   pre-commit run --all-files
+#
+# Config for the tools lives in pyproject.toml ([tool.ruff]) and .clang-format.
+repos:
+  # Python: ruff linter (with autofix) + formatter.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.22
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  # C++: clang-format. Restricted to first-party sources; vendored Catch2 is
+  # excluded so its upstream formatting is preserved.
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v21.1.8
+    hooks:
+      - id: clang-format
+        files: '\.(hpp|cpp)$'
+        exclude: '^third_party/'

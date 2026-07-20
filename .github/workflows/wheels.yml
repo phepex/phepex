@@ -1,0 +1,82 @@
+name: wheels
+
+# Build binary wheels (cibuildwheel) + the sdist for phepex.
+# Reusable via workflow_call so release.yml builds the exact same artifacts it publishes.
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  pull_request:
+    paths:
+      - "src/**"
+      - "include/**"
+      - "python/**"
+      - "CMakeLists.txt"
+      - "pyproject.toml"
+      - ".github/workflows/wheels.yml"
+
+concurrency:
+  group: wheels-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_wheels:
+    name: wheels ${{ matrix.os }} ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04,     arch: x86_64 }
+          - { os: ubuntu-24.04-arm, arch: aarch64 }  # native ARM runner
+          - { os: macos-14,         arch: arm64 }    # Apple silicon
+          - { os: macos-15-intel,   arch: x86_64 }   # Intel
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # setuptools-scm needs full history + tags to derive the version
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v4.1
+        env:
+          # cp312 is built with nanobind's stable ABI and tagged abi3 (see pyproject overrides),
+          # so it also installs on 3.13/3.14+ — no need to list them here.
+          CIBW_BUILD: "cp310-* cp311-* cp312-*"
+          CIBW_SKIP: "*-musllinux* pp*"
+          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_BUILD_VERBOSITY: 1
+          # C++17 needs a newer floor than cibuildwheel's default; arm64 auto-clamps to 11.0.
+          MACOSX_DEPLOYMENT_TARGET: "10.13"
+          # Lightweight smoke test (no ctapipe/numba/scipy): prove _core loads/links and the
+          # native generate_waveforms kernel runs, and that every public name imports. numpy is
+          # pulled in automatically as the wheel's runtime dependency.
+          CIBW_TEST_COMMAND: >
+            python -c "import numpy as np, phepex;
+            wf = phepex.generate_waveforms(np.ones((2, 3)), np.zeros((2, 3)), np.ones(8), 1.0, 1.0, 16, upsampling=4, nsb_rate_ghz=0.0, seed=1);
+            assert wf.shape == (2, 3, 16) and wf.dtype == np.float32, wf.shape;
+            from phepex import deconvolve, extract_around_peak, adaptive_centroid, neighbor_peak_indices, pos_soft_clip, deconvolve_valid_range;
+            print('phepex', phepex.__version__, 'ok')"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.arch }}
+          path: wheelhouse/*.whl
+
+  build_sdist:
+    name: sdist
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # setuptools-scm needs tags to stamp the sdist version
+
+      - name: Build sdist
+        run: pipx run build --sdist
+
+      - name: Check metadata
+        run: pipx run twine check dist/*
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sdist
+          path: dist/*.tar.gz

@@ -1,0 +1,34 @@
+# Doxygen configuration for phepex — XML only (consumed by Breathe/Sphinx, no HTML).
+# Templated: @DOXYGEN_INPUT@ and @DOXYGEN_XML_OUT@ are substituted by docs/conf.py before
+# doxygen runs, so the same file works locally, in CI, and on Read the Docs.
+
+PROJECT_NAME           = "phepex"
+PROJECT_BRIEF          = "Photo-electron pulse extraction kernels"
+# Git-derived version, substituted by docs/conf.py (from phepex.__version__).
+PROJECT_NUMBER         = "@DOXYGEN_VERSION@"
+
+# Only the public headers carry the API we document.
+INPUT                  = @DOXYGEN_INPUT@
+RECURSIVE              = YES
+FILE_PATTERNS          = *.hpp
+
+# Emit XML for Breathe; suppress every other generator.
+GENERATE_XML           = YES
+XML_OUTPUT             = @DOXYGEN_XML_OUT@
+GENERATE_HTML          = NO
+GENERATE_LATEX         = NO
+
+# phepex writes the brief as the leading sentence(s) of each /// block (no @brief tag),
+# so autobrief must be on or Doxygen treats the whole comment as detail with no summary.
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+
+# Document everything declared in the headers, expand the version macros, keep logs quiet.
+EXTRACT_ALL            = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = NO
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = NO
+# phepex documents the salient params with @param and describes the dimension/scalar
+# params in prose; that partial style is intentional, so don't warn on the rest.
+WARN_IF_INCOMPLETE_DOC = NO

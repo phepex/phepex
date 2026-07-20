@@ -1,0 +1,7 @@
+# Documentation build dependencies for phepex (Sphinx + Breathe + autodoc).
+# The phepex package itself (with the `bench` extra, for phepex.extractor autodoc) is
+# installed separately; see .github/workflows/docs.yml and docs/README-ish notes in conf.py.
+sphinx>=7,<9
+breathe>=4.35
+myst-parser>=2,<5
+furo>=2024.1

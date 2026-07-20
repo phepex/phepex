@@ -1,0 +1,468 @@
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Max-Planck-Institut für Kernphysik
+//
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+// If a copy of the MPL was not distributed with this file, You can obtain one at
+// https://mozilla.org/MPL/2.0/.
+
+// Standalone C++ unit tests for the phepex kernels.
+// Uses vendored Catch2 v3 (third_party/catch2). Each check is self-verifying:
+// hand-computed values or algebraic invariants, so libphepex can be validated in a
+// pure-C++ toolchain.
+
+#include <cmath>
+#include <cstdint>
+#include <numeric>
+#include <random>
+#include <utility>
+#include <vector>
+
+#include "catch_amalgamated.hpp"
+#include "phepex/phepex.hpp"
+
+using Catch::Approx;
+
+TEST_CASE("deconvolve_valid_range", "[deconvolve]") {
+    // pole_zero != 0 : lo = 3U-2, hi = U*n - 2(U-1)
+    auto r = phepex::deconvolve_valid_range(4, 22, 0.76);
+    REQUIRE(r.lo == 10);
+    REQUIRE(r.hi == 82);
+    // pole_zero == 0 : lo = 2(U-1)
+    auto r0 = phepex::deconvolve_valid_range(4, 22, 0.0);
+    REQUIRE(r0.lo == 6);
+    REQUIRE(r0.hi == 82);
+}
+
+TEST_CASE("deconvolve_upsample: shape, DC gain, linearity", "[deconvolve]") {
+    const int n_ch = 1, n_pix = 1, n = 12, up = 4;
+    const float c = 5.0f;
+    std::vector<float> x(n, c);
+    std::vector<float> out(static_cast<std::size_t>(n) * up);
+
+    SECTION("DC input -> interior == c*(1-pole_zero)") {
+        for (double pz : {0.0, 0.5, 0.75}) {
+            const float pzf = static_cast<float>(pz);
+            phepex::deconvolve_upsample(x.data(), n_ch, n_pix, n, up, &pzf, nullptr,
+                                        nullptr, out.data());
+            auto vr = phepex::deconvolve_valid_range(up, n, pz);
+            const int mid = (vr.lo + vr.hi) / 2;
+            REQUIRE(out[mid] == Approx(c * (1.0 - pz)).margin(1e-4));
+            for (float v : out)
+                REQUIRE(std::isfinite(v));
+        }
+    }
+    SECTION("linearity: deconv(2x) == 2*deconv(x)") {
+        std::vector<float> x2(n, 2 * c), o1(n * up), o2(n * up);
+        const float pzf = 0.5f;
+        phepex::deconvolve_upsample(x.data(), n_ch, n_pix, n, up, &pzf, nullptr, nullptr,
+                                    o1.data());
+        phepex::deconvolve_upsample(x2.data(), n_ch, n_pix, n, up, &pzf, nullptr, nullptr,
+                                    o2.data());
+        for (std::size_t i = 0; i < o1.size(); ++i)
+            REQUIRE(o2[i] == Approx(2.0f * o1[i]).margin(1e-5));
+    }
+}
+
+TEST_CASE("pos_soft_clip: max(y/(1+|y|), 0)", "[clip]") {
+    const int n_up = 5;
+    std::vector<float> x = {0.0f, 5.0f, -5.0f, 15.0f, 2.5f};  // scale = 5
+    std::vector<float> out(n_up);
+
+    SECTION("full range (0,0)") {
+        phepex::pos_soft_clip(x.data(), 1, 1, n_up, 5.0f, 0, 0, out.data());
+        REQUIRE(out[0] == Approx(0.0));
+        REQUIRE(out[1] == Approx(0.5));      // y=1  -> 0.5
+        REQUIRE(out[2] == Approx(0.0));      // y=-1 -> -0.5 -> clamp 0
+        REQUIRE(out[3] == Approx(0.75));     // y=3  -> 0.75
+        REQUIRE(out[4] == Approx(1.0 / 3));  // y=0.5 -> 1/3
+    }
+    SECTION("restricted [1,4): outside is zero") {
+        phepex::pos_soft_clip(x.data(), 1, 1, n_up, 5.0f, 1, 4, out.data());
+        REQUIRE(out[0] == 0.0f);
+        REQUIRE(out[4] == 0.0f);
+        REQUIRE(out[1] == Approx(0.5));
+    }
+}
+
+TEST_CASE("neighbor_peak_indices: CSR line graph 0-1-2", "[neighbor]") {
+    const int n_ch = 1, n_pix = 3, n_up = 5;
+    std::vector<float> wf(n_pix * n_up, 0.0f);
+    wf[0 * n_up + 2] = 9;  // pixel 0 peak @2
+    wf[1 * n_up + 3] = 9;  // pixel 1 peak @3
+    wf[2 * n_up + 4] = 9;  // pixel 2 peak @4
+    std::vector<std::int32_t> indptr = {0, 1, 3, 4}, indices = {1, 0, 2, 1};
+    std::vector<char> broken(n_pix, 0);  // char storage for bool*
+    std::vector<std::int64_t> peak(n_pix);
+    const bool *bp = reinterpret_cast<const bool *>(broken.data());
+
+    SECTION("local_weight 0") {
+        phepex::neighbor_peak_indices(wf.data(), n_ch, n_pix, n_up, indptr.data(),
+                                      indices.data(), 0, bp, 0, 0, peak.data());
+        REQUIRE(peak[0] == 3);  // nb{1}: wf1 peak @3
+        REQUIRE(peak[1] == 2);  // nb{0,2}: [0,0,9,0,9] first max @2
+        REQUIRE(peak[2] == 3);
+    }
+    SECTION("local_weight 1 includes self") {
+        phepex::neighbor_peak_indices(wf.data(), n_ch, n_pix, n_up, indptr.data(),
+                                      indices.data(), 1, bp, 0, 0, peak.data());
+        REQUIRE(peak[0] == 2);  // self@2 + nb1@3 -> [0,0,9,9,0] first max @2
+        REQUIRE(peak[1] == 2);  // [0,0,9,9,9] first max @2
+        REQUIRE(peak[2] == 3);
+    }
+    SECTION("broken neighbour skipped") {
+        broken[0] = 1;  // pixel 0 broken -> excluded as a neighbour
+        phepex::neighbor_peak_indices(wf.data(), n_ch, n_pix, n_up, indptr.data(),
+                                      indices.data(), 0, bp, 0, 0, peak.data());
+        REQUIRE(peak[1] == 4);  // only nb2 -> peak @4
+    }
+}
+
+TEST_CASE("extract_around_peak: window sum + weighted time", "[extract]") {
+    const int n_ch = 1, n_pix = 1, n_up = 8;
+    std::vector<float> w = {0, 0, 1, 4, 2, 0, 0, 0};
+    std::vector<std::int64_t> pk = {3};
+    std::vector<float> charge(1), ptime(1);
+    // width=3, shift=1 -> window [2,5): 1+4+2 = 7; time = (1*2+4*3+2*4)/7 = 22/7,
+    // /rate(1)
+    phepex::extract_around_peak(w.data(), n_ch, n_pix, n_up, pk.data(), 3, 1, 1.0,
+                                charge.data(), ptime.data());
+    REQUIRE(charge[0] == Approx(7.0));
+    REQUIRE(ptime[0] == Approx(22.0 / 7.0));
+    // sampling_rate scales the time
+    phepex::extract_around_peak(w.data(), n_ch, n_pix, n_up, pk.data(), 3, 1, 2.0,
+                                charge.data(), ptime.data());
+    REQUIRE(ptime[0] == Approx(22.0 / 7.0 / 2.0));
+}
+
+TEST_CASE("adaptive_centroid: leading-edge centroid + fallback", "[extract]") {
+    const int n_ch = 1, n_pix = 1, n_up = 8;
+    std::vector<float> w = {0, 0, 1, 4, 2, 0, 0, 0};
+    std::vector<std::int64_t> pk = {3};
+    std::vector<float> out(1);
+    // rel=0.4 -> descend limit 0.4*4=1.6; window {3,4}: (3*4+4*2)/(4+2) = 20/6
+    phepex::adaptive_centroid(w.data(), n_ch, n_pix, n_up, pk.data(), 0.4, out.data());
+    REQUIRE(out[0] == Approx(20.0 / 6.0));
+
+    SECTION("negative peak amplitude -> returns peak_index") {
+        std::vector<float> wn(n_up, -1.0f);
+        phepex::adaptive_centroid(wn.data(), n_ch, n_pix, n_up, pk.data(), 0.4,
+                                  out.data());
+        REQUIRE(out[0] == Approx(3.0));
+    }
+}
+
+namespace {
+std::vector<double> gaussian_pulse() {  // ref_sample_width = 0.25 ns, ~10 ns long
+    std::vector<double> ref;
+    for (double t = 0.0; t < 10.0; t += 0.25)
+        ref.push_back(std::exp(-0.5 * std::pow((t - 4.0) / 0.8, 2)));
+    return ref;
+}
+}  // namespace
+
+TEST_CASE("generate_waveforms: charge conservation, zero, reproducibility, NSB rate",
+          "[generate]") {
+    const auto ref = gaussian_pulse();
+    const double ref_sw = 0.25, sw = 1.0;
+    const int up = 4, n = 32;
+
+    SECTION("signal-only integral == charge (charge-conserving), zero->zero") {
+        std::vector<double> ch = {100.0}, tm = {static_cast<double>(n / 2) * sw};
+        std::vector<float> out(n);
+        phepex::generate_waveforms(ch.data(), tm.data(), 1, 1, ref.data(),
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.0, 0,
+                                   out.data());
+        double integ = std::accumulate(out.begin(), out.end(), 0.0);
+        REQUIRE(integ == Approx(100.0).margin(0.5));
+        for (float v : out)
+            REQUIRE(std::isfinite(v));
+
+        std::vector<double> z0 = {0.0}, zt = {0.0};
+        std::vector<float> zout(n);
+        phepex::generate_waveforms(z0.data(), zt.data(), 1, 1, ref.data(),
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.0, 0,
+                                   zout.data());
+        for (float v : zout)
+            REQUIRE(v == 0.0f);
+    }
+
+    SECTION("same seed -> identical output") {
+        const int ne = 5, np = 40;
+        std::vector<double> ch(ne * np, 0.0), tm(ne * np, 0.0);
+        std::vector<float> a(ne * np * n), b(ne * np * n);
+        phepex::generate_waveforms(ch.data(), tm.data(), ne, np, ref.data(),
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.5, 42, a.data());
+        phepex::generate_waveforms(ch.data(), tm.data(), ne, np, ref.data(),
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.5, 42, b.data());
+        REQUIRE(a == b);
+    }
+
+    SECTION("NSB mean integral/pixel ~ rate * n_samples * sample_width") {
+        const int ne = 200, np = 200;
+        std::vector<double> ch(ne * np, 0.0), tm(ne * np, 0.0);
+        std::vector<float> out(static_cast<std::size_t>(ne) * np * n);
+        const double rate = 0.5;
+        phepex::generate_waveforms(ch.data(), tm.data(), ne, np, ref.data(),
+                                   (int)ref.size(), ref_sw, sw, n, up, rate, 1,
+                                   out.data());
+        double tot = 0.0;
+        for (float v : out)
+            tot += v;
+        const double mean_per_pixel = tot / (static_cast<double>(ne) * np);
+        REQUIRE(mean_per_pixel == Approx(rate * n * sw).epsilon(0.02));
+    }
+}
+
+// preprocess_waveform / preprocess_valid_range: bit-exact against a FROZEN copy of
+// libdvr's original DSP kernels (the extraction oracle). If phepex's kernels ever drift
+// from libdvr's math, these fail. The reference code below is a verbatim copy of libdvr's
+// src/DSP.cpp as of the extraction and must NOT be "cleaned up".
+namespace {
+
+template <typename InputType, typename OutputType>
+void refUpsample(int n, int upsampling_factor, const InputType *input, OutputType offset,
+                 OutputType pole_zero, OutputType *output, OutputType scale) {
+    OutputType v2, v1;
+    OutputType sum1, sum2;
+    OutputType tmp;
+    OutputType pzc2, pzc1;
+    OutputType *out1 = output;
+    OutputType *out2 = output;
+    OutputType mult = scale / (upsampling_factor * upsampling_factor);
+    v1 = v2 = (input[0] - offset) * mult;
+    pzc2 = pzc1 = v2;
+    sum1 = pzc2 * upsampling_factor;
+    sum2 = sum1 * upsampling_factor;
+    for (int i = 0; i < upsampling_factor; i++)
+        *out1++ = sum1;
+    for (int i = 1; i < n; i++) {
+        v2 = (input[i] - offset) * mult;
+        pzc2 = (v2 - v1);
+        v1 = v2;
+        for (int i1 = 0; i1 < upsampling_factor; i1++) {
+            sum1 += pzc2 - pzc1 * pole_zero;
+            *out1++ = sum1;
+            tmp = *out2;
+            *out2++ = sum2;
+            sum2 += sum1 - tmp;
+        }
+        pzc1 = pzc2;
+    }
+    n *= upsampling_factor;
+    for (v2 = output[n - 1]; out2 < (output + n);) {
+        tmp = *out2;
+        *out2++ = sum2;
+        sum2 += v2 - tmp;
+    }
+}
+
+template <typename InputType, typename OutputType>
+void refSmooth(const InputType *x, OutputType *y, int n,
+               const phepex::SmoothingCoefficients &c) {
+    if (n == 0 || x == nullptr || y == nullptr)
+        return;
+    y[0] = c.n[0] * x[0];
+    if (n == 1)
+        return;
+    y[1] = c.n[0] * x[1] + c.n[1] * x[0] - c.d[0] * y[0];
+    for (int i = 2; i < n; i++)
+        y[i] = c.n[0] * x[i] + c.n[1] * x[i - 1] - c.d[0] * y[i - 1] - c.d[1] * y[i - 2];
+    double y_2 = 0, y_1 = 0, y_0 = c.m[0] * x[n - 1];
+    y[n - 2] += y_0;
+    for (int i = n - 3; i >= 0; i--) {
+        y_2 = y_1;
+        y_1 = y_0;
+        y_0 = c.m[0] * x[i + 1] + c.m[1] * x[i + 2] - c.d[0] * y_1 - c.d[1] * y_2;
+        y[i] += y_0;
+    }
+}
+
+void refPreprocess(const std::uint16_t *src, int n, int up, float pole_zero,
+                   const phepex::SmoothingCoefficients *sm, float offset, float scale,
+                   float *out) {
+    const int dst_samples = up * n;
+    std::vector<float> tmp;
+    if (sm) {
+        tmp.resize(dst_samples);
+        if (up == 1)
+            for (int i = 0; i < n; i++)
+                tmp[i] = scale * (static_cast<float>(src[i]) - offset);
+        else
+            refUpsample<std::uint16_t, float>(n, up, src, offset, pole_zero, tmp.data(),
+                                              scale);
+        refSmooth(tmp.data(), out, dst_samples, *sm);
+    } else {
+        if (up == 1)
+            for (int i = 0; i < n; i++)
+                out[i] = scale * (static_cast<float>(src[i]) - offset);
+        else
+            refUpsample<std::uint16_t, float>(n, up, src, offset, pole_zero, out, scale);
+    }
+}
+
+std::pair<int, int> refValidRange(int up, float pole_zero,
+                                  const phepex::SmoothingCoefficients *sm,
+                                  int num_samples) {
+    if (up < 1)
+        up = 1;
+    int right = 2 * up - 2;
+    int left = std::max(right, (pole_zero != 0.0f) ? (3 * up - 2) : 0);
+    if (sm) {
+        const int fwhm = static_cast<int>(std::floor(sm->fwhm));
+        right += fwhm;
+        left += fwhm;
+    }
+    if (left >= num_samples || right >= num_samples)
+        return {0, 0};
+    return {left, num_samples - right};
+}
+
+}  // namespace
+
+TEST_CASE("preprocess_waveform matches the frozen libdvr oracle bit-for-bit",
+          "[preprocess]") {
+    std::mt19937 rng(12345);
+    std::uniform_int_distribution<int> adc(0, 4095);
+    const int n = 40;
+    const float offset = 3.5f, scale = 0.7f;
+
+    for (int up : {1, 2, 4, 8}) {
+        for (float pz : {0.0f, 0.9f}) {
+            for (double fwhm : {-1.0, 1.5, 4.0}) {  // -1 => no smoothing
+                phepex::SmoothingCoefficients sc;
+                const phepex::SmoothingCoefficients *sm = nullptr;
+                if (fwhm > 0.0) {
+                    sc = phepex::calculate_smoothing_coefficients(fwhm);
+                    sm = &sc;
+                }
+                std::vector<std::uint16_t> src(n);
+                for (int i = 0; i < n; i++)
+                    src[i] = static_cast<std::uint16_t>(adc(rng));
+
+                std::vector<float> got(n * up), ref(n * up);
+                phepex::preprocess_waveform(src.data(), n, up, pz, sm, offset, scale,
+                                            got.data());
+                refPreprocess(src.data(), n, up, pz, sm, offset, scale, ref.data());
+                REQUIRE(std::memcmp(got.data(), ref.data(), got.size() * sizeof(float)) ==
+                        0);
+            }
+        }
+    }
+}
+
+TEST_CASE("preprocess_waveform float and uint16 overloads agree", "[preprocess]") {
+    const int n = 24, up = 4;
+    std::vector<std::uint16_t> src = {10, 12, 40, 90, 60, 30, 20, 15, 11, 10, 10, 10,
+                                      10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
+    std::vector<float> srcf(src.begin(), src.end());
+    std::vector<float> a(n * up), b(n * up);
+    phepex::preprocess_waveform(src.data(), n, up, 0.9f, nullptr, 2.0f, 0.5f, a.data());
+    phepex::preprocess_waveform(srcf.data(), n, up, 0.9f, nullptr, 2.0f, 0.5f, b.data());
+    REQUIRE(std::memcmp(a.data(), b.data(), a.size() * sizeof(float)) == 0);
+}
+
+TEST_CASE("preprocess_valid_range matches the frozen libdvr formula", "[preprocess]") {
+    for (int up : {1, 2, 4, 8}) {
+        for (float pz : {0.0f, 0.9f}) {
+            for (double fwhm : {-1.0, 1.5, 4.0}) {
+                for (int ns : {3, 8, 40}) {
+                    phepex::SmoothingCoefficients sc;
+                    const phepex::SmoothingCoefficients *sm = nullptr;
+                    if (fwhm > 0.0) {
+                        sc = phepex::calculate_smoothing_coefficients(fwhm);
+                        sm = &sc;
+                    }
+                    auto r = phepex::preprocess_valid_range(up, pz, sm, ns);
+                    auto e = refValidRange(up, pz, sm, ns);
+                    REQUIRE(r.lo == e.first);
+                    REQUIRE(r.hi == e.second);
+                }
+            }
+        }
+    }
+}
+
+TEST_CASE("calculate_smoothing_coefficients has unity DC gain", "[preprocess]") {
+    // A constant input must pass through the smoothing unchanged deep in the interior
+    // (n large enough that the IIR transient has died out at n/2).
+    const int n = 64;
+    std::vector<std::uint16_t> src(n, 100);
+    for (double fwhm : {1.5, 4.0, 8.0}) {
+        auto sc = phepex::calculate_smoothing_coefficients(fwhm);
+        std::vector<float> out(n);
+        phepex::preprocess_waveform(src.data(), n, 1, 0.0f, &sc, 0.0f, 1.0f, out.data());
+        REQUIRE(out[n / 2] == Approx(100.0).margin(1e-2));
+    }
+}
+
+TEST_CASE("neighbor_peak_indices: neighbor_count + skip-broken (neighbours-only)",
+          "[neighbor]") {
+    // Line graph 0-1-2-3; local_weight 0 => neighbours only.
+    const int n_ch = 1, n_pix = 4, n_up = 5;
+    std::vector<float> wf(n_pix * n_up, 0.0f);
+    wf[0 * n_up + 1] = 9;  // pixel 0 peak @1
+    wf[1 * n_up + 2] = 9;  // pixel 1 peak @2
+    wf[2 * n_up + 3] = 9;  // pixel 2 peak @3
+    wf[3 * n_up + 4] = 9;  // pixel 3 peak @4
+    // CSR line graph: 0-1, 1-{0,2}, 2-{1,3}, 3-2
+    std::vector<std::int32_t> indptr = {0, 1, 3, 5, 6};
+    std::vector<std::int32_t> indices = {1, 0, 2, 1, 3, 2};
+    std::vector<char> broken(n_pix, 0);
+    std::vector<std::int64_t> peak(n_pix);
+    std::vector<std::int32_t> count(n_pix, -1);
+    const bool *bp = reinterpret_cast<const bool *>(broken.data());
+
+    SECTION("counts and neighbours-only peaks") {
+        phepex::neighbor_peak_indices(wf.data(), n_ch, n_pix, n_up, indptr.data(),
+                                      indices.data(), 0, bp, 0, 0, peak.data(),
+                                      count.data());
+        REQUIRE(count[0] == 1);  // nb {1}
+        REQUIRE(count[1] == 2);  // nb {0,2}
+        REQUIRE(count[2] == 2);  // nb {1,3}
+        REQUIRE(count[3] == 1);  // nb {2}
+        REQUIRE(peak[0] == 2);   // nb1 peak @2
+        REQUIRE(peak[1] == 1);   // nb0@1 + nb2@3 -> first max @1
+    }
+    SECTION("broken neighbour is skipped (not counted), later valid ones still summed") {
+        broken[0] = 1;  // pixel 0 broken; pixel 1's neighbour list is {0,2}
+        phepex::neighbor_peak_indices(wf.data(), n_ch, n_pix, n_up, indptr.data(),
+                                      indices.data(), 0, bp, 0, 0, peak.data(),
+                                      count.data());
+        REQUIRE(count[1] == 1);  // only nb2 counted (nb0 skipped, NOT broken off early)
+        REQUIRE(peak[1] == 3);   // nb2 peak @3
+    }
+    SECTION("null neighbor_count is allowed") {
+        phepex::neighbor_peak_indices(wf.data(), n_ch, n_pix, n_up, indptr.data(),
+                                      indices.data(), 0, bp, 0, 0, peak.data(), nullptr);
+        REQUIRE(peak[2] == 2);  // nb1@2 + nb3@4 -> first max @2
+    }
+    SECTION("external scratch buffer matches internal allocation") {
+        std::vector<std::int64_t> peak_ext(n_pix);
+        std::vector<float> scratch(n_up);  // n_up floats always suffices
+        for (auto range : {std::make_pair(0, 0), std::make_pair(1, 4)}) {
+            phepex::neighbor_peak_indices(wf.data(), n_ch, n_pix, n_up, indptr.data(),
+                                          indices.data(), 1, bp, range.first,
+                                          range.second, peak.data());
+            phepex::neighbor_peak_indices(
+                wf.data(), n_ch, n_pix, n_up, indptr.data(), indices.data(), 1, bp,
+                range.first, range.second, peak_ext.data(), nullptr, scratch.data());
+            REQUIRE(std::memcmp(peak.data(), peak_ext.data(),
+                                peak.size() * sizeof(std::int64_t)) == 0);
+        }
+    }
+}
+
+TEST_CASE("preprocess_waveform: external scratch buffer matches internal allocation",
+          "[preprocess]") {
+    const int n = 24, up = 4;
+    std::vector<std::uint16_t> src = {10, 12, 40, 90, 60, 30, 20, 15, 11, 10, 10, 10,
+                                      10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
+    auto sc =
+        phepex::calculate_smoothing_coefficients(4.0);  // smoothing path uses scratch
+    std::vector<float> got(n * up), ref(n * up);
+    std::vector<float> scratch(n * up);  // n_samples*upsampling floats
+    phepex::preprocess_waveform(src.data(), n, up, 0.9f, &sc, 2.0f, 0.5f, ref.data());
+    phepex::preprocess_waveform(src.data(), n, up, 0.9f, &sc, 2.0f, 0.5f, got.data(),
+                                scratch.data());
+    REQUIRE(std::memcmp(got.data(), ref.data(), got.size() * sizeof(float)) == 0);
+}

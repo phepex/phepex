@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__
+build
+dist/
+dist_wheel/
+docs/_build/
+docs/_doxygen/
+docs/Doxyfile
+include/phepex/version.hpp
+wheelhouse/

@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) 2026 Max-Planck-Institut für Kernphysik
+//
+// This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+// If a copy of the MPL was not distributed with this file, You can obtain one at
+// https://mozilla.org/MPL/2.0/.
+
+// Generated from version.hpp.in by CMake at configure time; the version is derived from the
+// git tag (see cmake/GitVersion.cmake). Do not edit the generated header by hand.
+
+#ifndef PHEPEX_VERSION_HPP
+#define PHEPEX_VERSION_HPP
+
+#define PHEPEX_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define PHEPEX_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define PHEPEX_VERSION_PATCH @PROJECT_VERSION_PATCH@
+#define PHEPEX_VERSION "@PHEPEX_VERSION_STRING@"
+
+#endif  // PHEPEX_VERSION_HPP

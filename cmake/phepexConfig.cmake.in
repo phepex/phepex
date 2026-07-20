@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MPL-2.0
+# Copyright (c) 2026 Max-Planck-Institut für Kernphysik
+#
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+# If a copy of the MPL was not distributed with this file, You can obtain one at
+# https://mozilla.org/MPL/2.0/.
+
+@PACKAGE_INIT@
+
+# phepex CMake package: provides imported targets
+#   phepex::phepex         (shared, libphepex.so)
+#   phepex::phepex_static  (static, libphepex.a)
+include("${CMAKE_CURRENT_LIST_DIR}/phepexTargets.cmake")
+
+check_required_components(phepex)
