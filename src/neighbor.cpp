@@ -17,8 +17,8 @@ namespace phepex {
 
 void neighbor_peak_indices(const float *waveforms, int n_ch, int n_pix, int n_up,
                            const std::int32_t *indptr, const std::int32_t *indices,
-                           int local_weight, const bool *broken_pixels, int sample_lo,
-                           int sample_hi, std::int64_t *peak_out,
+                           int local_weight, const std::uint8_t *broken_pixels,
+                           int sample_lo, int sample_hi, std::int64_t *peak_out,
                            std::int32_t *neighbor_count, float *scratch) {
     int lo, hi;
     detail::resolve_range(sample_lo, sample_hi, n_up, lo, hi);

@@ -91,9 +91,9 @@ TEST_CASE("neighbor_peak_indices: CSR line graph 0-1-2", "[neighbor]") {
     wf[1 * n_up + 3] = 9;  // pixel 1 peak @3
     wf[2 * n_up + 4] = 9;  // pixel 2 peak @4
     std::vector<std::int32_t> indptr = {0, 1, 3, 4}, indices = {1, 0, 2, 1};
-    std::vector<char> broken(n_pix, 0);  // char storage for bool*
+    std::vector<std::uint8_t> broken(n_pix, 0);  // byte mask: nonzero => broken
     std::vector<std::int64_t> peak(n_pix);
-    const bool *bp = reinterpret_cast<const bool *>(broken.data());
+    const std::uint8_t *bp = broken.data();
 
     SECTION("local_weight 0") {
         phepex::neighbor_peak_indices(wf.data(), n_ch, n_pix, n_up, indptr.data(),
@@ -407,10 +407,10 @@ TEST_CASE("neighbor_peak_indices: neighbor_count + skip-broken (neighbours-only)
     // CSR line graph: 0-1, 1-{0,2}, 2-{1,3}, 3-2
     std::vector<std::int32_t> indptr = {0, 1, 3, 5, 6};
     std::vector<std::int32_t> indices = {1, 0, 2, 1, 3, 2};
-    std::vector<char> broken(n_pix, 0);
+    std::vector<std::uint8_t> broken(n_pix, 0);  // byte mask: nonzero => broken
     std::vector<std::int64_t> peak(n_pix);
     std::vector<std::int32_t> count(n_pix, -1);
-    const bool *bp = reinterpret_cast<const bool *>(broken.data());
+    const std::uint8_t *bp = broken.data();
 
     SECTION("counts and neighbours-only peaks") {
         phepex::neighbor_peak_indices(wf.data(), n_ch, n_pix, n_up, indptr.data(),

@@ -47,13 +47,12 @@ int main() {
     // CSR line graph: 0-1-2 (pixel 1 neighbours 0 and 2).
     const std::int32_t indptr[4] = {0, 1, 3, 4};
     const std::int32_t indices[4] = {1, 0, 2, 1};
-    // std::vector<bool> is bit-packed, so use a plain byte buffer for the bool* API.
-    std::vector<unsigned char> broken(n_ch * n_pix, 0);
+    // Byte mask (nonzero => broken); passed straight to the kernel's uint8 mask API.
+    std::vector<std::uint8_t> broken(n_ch * n_pix, 0);
     std::vector<std::int64_t> peak(n_ch * n_pix);
     phepex::neighbor_peak_indices(deconv.data(), n_ch, n_pix, n_up, indptr, indices,
-                                  /*local_weight=*/1,
-                                  reinterpret_cast<const bool *>(broken.data()), vr.lo,
-                                  vr.hi, peak.data());
+                                  /*local_weight=*/1, broken.data(), vr.lo, vr.hi,
+                                  peak.data());
 
     // Window integration + weighted peak time.
     std::vector<float> charge(n_ch * n_pix), peak_time(n_ch * n_pix);

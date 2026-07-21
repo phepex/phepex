@@ -23,7 +23,9 @@ namespace phepex {
 /// @param waveforms  input (n_ch, n_pix, n_up) float32
 /// @param indptr     CSR row pointers, length n_pix+1
 /// @param indices    CSR column indices (neighbour pixel ids), length indptr[n_pix]
-/// @param broken_pixels  (n_ch, n_pix) bool; broken neighbours are skipped
+/// @param broken_pixels  (n_ch, n_pix) byte mask (nonzero => broken); broken neighbours
+///                        are skipped. A byte mask (rather than bool*) lets callers pass
+///                        contiguous byte storage directly without a bool aliasing hazard.
 /// @param peak_out   caller-allocated n_ch*n_pix int64 (argmax sample index per pixel)
 /// @param neighbor_count  optional n_ch*n_pix int32 (caller-allocated); if non-null, gets
 ///                        the number of non-broken neighbours summed per pixel
@@ -31,8 +33,8 @@ namespace phepex {
 ///                   a buffer is allocated internally for the duration of the call
 void neighbor_peak_indices(const float *waveforms, int n_ch, int n_pix, int n_up,
                            const std::int32_t *indptr, const std::int32_t *indices,
-                           int local_weight, const bool *broken_pixels, int sample_lo,
-                           int sample_hi, std::int64_t *peak_out,
+                           int local_weight, const std::uint8_t *broken_pixels,
+                           int sample_lo, int sample_hi, std::int64_t *peak_out,
                            std::int32_t *neighbor_count = nullptr,
                            float *scratch = nullptr);
 
