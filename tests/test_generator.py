@@ -19,13 +19,14 @@ The NSB component must be a stationary Poisson process with the requested mean r
 
 import warnings
 
-import astropy.units as u
 import numpy as np
 import pytest
 
 from phepex import generate_waveforms
 
 pytest.importorskip("ctapipe")
+# astropy ships as a ctapipe dependency, so import it only after the guard above.
+import astropy.units as u
 from ctapipe.image.toymodel import WaveformModel
 from ctapipe.instrument import CameraReadout, FromNameWarning
 
