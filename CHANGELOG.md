@@ -9,6 +9,18 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
 
 ## [Unreleased]
 
+### Changed
+- `neighbor_peak_indices` takes the broken-pixel mask as `const std::uint8_t *` (nonzero =>
+  broken) instead of `const bool *`. Callers held byte storage (`std::vector<char>`/`<unsigned
+  char>`) and `reinterpret_cast` it to `bool *`. This was defective on two independent grounds:
+  (1) reading a `char`/`unsigned char` object through a `bool` glvalue violates the
+  strict-aliasing rule regardless of the stored value; and (2) a byte other than 0/1 is not a
+  valid `bool` value, so loading it is UB — compilers assume `bool` is in {0,1} and miscompile
+  (observed: a mask byte of 2 read via `bool *` tests as false at `-O2` on g++ 15.2, skipping
+  the broken-pixel branch). A numpy bool array is genuine 1-byte bool storage holding only 0/1,
+  so the Python binding's reinterpret to `uint8_t *` is well-defined. Source-incompatible for
+  C++ callers passing `bool *`.
+
 ### Added
 - `ci` workflow: on every push and pull request, builds and tests both halves — the C++17
   library (CMake + Catch2 unit tests on Ubuntu and macOS, plus an installed-package

@@ -126,9 +126,13 @@ neighbor_peak_indices(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> wavefo
         throw std::invalid_argument(
             "broken_pixels shape must be (n_channels, n_pix) matching waveforms");
     std::int64_t *out = new std::int64_t[static_cast<std::size_t>(n_ch) * n_pix];
-    phepex::neighbor_peak_indices(waveforms.data(), n_ch, n_pix, n_up, indptr.data(),
-                                  indices.data(), local_weight, broken_pixels.data(),
-                                  sample_lo, sample_hi, out);
+    // The kernel takes a byte mask; a numpy bool array is genuine 1-byte bool storage,
+    // and reading a bool object through `unsigned char` is permitted by the aliasing
+    // rules, so this reinterpret is well-defined (unlike char storage read as bool*).
+    phepex::neighbor_peak_indices(
+        waveforms.data(), n_ch, n_pix, n_up, indptr.data(), indices.data(), local_weight,
+        reinterpret_cast<const std::uint8_t *>(broken_pixels.data()), sample_lo, sample_hi,
+        out);
     std::size_t shape[2] = {static_cast<std::size_t>(n_ch),
                             static_cast<std::size_t>(n_pix)};
     return nb::ndarray<nb::numpy, std::int64_t>(out, 2, shape, make_deleter(out));
