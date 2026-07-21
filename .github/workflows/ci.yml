@@ -1,0 +1,138 @@
+name: ci
+
+# Build + test both halves of phepex on every push/PR:
+#   * the standalone C++17 kernel library (CMake build, Catch2 unit tests, and an
+#     installed-package consumer smoke test via find_package + pkg-config), and
+#   * the Python package (from-source scikit-build-core build on every supported
+#     interpreter, plus the full pytest suite with the ctapipe reference on one).
+# Wheel/sdist packaging lives in wheels.yml; this workflow is the fast correctness gate.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # C++ build + unit tests
+  cpp-test:
+    name: C++ tests ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # GitVersion derives the version from git tags
+
+      - name: Configure
+        run: >
+          cmake -B build -S .
+          -DCMAKE_BUILD_TYPE=Release
+          -DPHEPEX_BUILD_TESTS=ON
+          -DPHEPEX_BUILD_EXAMPLES=ON
+
+      - name: Build
+        run: cmake --build build --config Release -j
+
+      - name: Run C++ unit tests
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
+      - name: Run the example
+        run: ./build/phepex_example
+
+  # C++ install + downstream consumer build
+  # Proves the installed CMake package config (find_package) and pkg-config file both let a
+  # separate project locate and link libphepex -- the contract C++ consumers depend on.
+  cpp-package:
+    name: C++ install + consumer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Build + install libphepex
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/_prefix"
+          cmake --build build -j
+          cmake --install build
+
+      - name: Consume via find_package(phepex)
+        run: |
+          mkdir -p _consumer && cd _consumer
+          cat > CMakeLists.txt <<'EOF'
+          cmake_minimum_required(VERSION 3.15)
+          project(consumer CXX)
+          find_package(phepex REQUIRED)
+          add_executable(consumer example.cpp)
+          target_link_libraries(consumer PRIVATE phepex::phepex)
+          EOF
+          cp ../examples/example.cpp .
+          cmake -B b -S . -DCMAKE_PREFIX_PATH="$PWD/../_prefix"
+          cmake --build b -j
+          ./b/consumer
+
+      - name: Consume via pkg-config
+        run: |
+          command -v pkg-config >/dev/null || sudo apt-get update && sudo apt-get install -y pkg-config
+          cd _consumer
+          export PKG_CONFIG_PATH="$PWD/../_prefix/lib/pkgconfig:$PWD/../_prefix/lib64/pkgconfig"
+          export LD_LIBRARY_PATH="$PWD/../_prefix/lib:$PWD/../_prefix/lib64"
+          g++ -std=c++17 example.cpp $(pkg-config --cflags --libs phepex) -o consumer_pc
+          ./consumer_pc
+
+  # Python from-source build on every supported interpreter, plus the ctapipe-free guard tests
+  # (the equivalence tests importorskip ctapipe, which isn't installed here, so this run covers
+  # build + import + guard coverage).
+  python-build:
+    name: Python build py${{ matrix.python-version }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # setuptools-scm needs full history + tags for the version
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Build + install phepex from source
+        run: pip install --verbose .
+
+      - name: Run the ctapipe-free test suite
+        run: |
+          pip install pytest
+          pytest -v
+
+  # Full Python suite vs ctapipe (3.12)
+  # The bench extra pulls in ctapipe (+ numba/scipy/astropy) so the bit-exactness and
+  # extractor-equivalence tests actually run instead of being skipped.
+  python-test:
+    name: Python tests + ctapipe
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Build + install phepex with the bench (ctapipe) extra
+        run: pip install --verbose .[bench] pytest
+
+      - name: Run the full test suite
+        run: pytest -v
