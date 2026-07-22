@@ -20,8 +20,24 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
   the broken-pixel branch). A numpy bool array is genuine 1-byte bool storage holding only 0/1,
   so the Python binding's reinterpret to `uint8_t *` is well-defined. Source-incompatible for
   C++ callers passing `bool *`.
+- Documentation is published one subdirectory per version on a `gh-pages` branch (`dev/` from
+  `main`, `latest/` tracking the newest release tag, `vX.Y.Z/` per tag) instead of a
+  single GitHub Pages artifact that replaced the whole site on each push. The `docs`
+  workflow builds one version per run and publishes it with `peaceiris/actions-gh-pages`
+  (`force_orphan`, so the branch is kept at a single commit). `latest/` is derived from
+  the highest `vX.Y.Z` tag directory present, so pushing a backport tag older than the
+  current newest does not move it. Tag builds are restricted to release tags matching
+  `v[0-9]+.[0-9]+.[0-9]+`; pre-release tags (e.g. `v1.0.0-rc1`) are not built or
+  published.
 
 ### Added
+- Documentation version switcher in the furo sidebar. A `switcher.json` at the site root lists
+  the published versions; `docs/_static/version-switcher.js` fetches it at runtime and fills a
+  `<select>`. The control is server-rendered with the `hidden` attribute and revealed only
+  after a successful load, so a page with JavaScript disabled or an unreachable `switcher.json`
+  (e.g. opened over `file://`) shows no control instead of an empty box. `docs/gen_switcher.py`
+  regenerates `switcher.json`, the root redirect to `latest/`, and `.nojekyll` from the version
+  directories present on the branch, so no entry points at an unpublished version.
 - `ci` workflow: on every push and pull request, builds and tests both halves — the C++17
   library (CMake + Catch2 unit tests on Ubuntu and macOS, plus an installed-package
   `find_package`/pkg-config consumer build) and the Python package (from-source build on

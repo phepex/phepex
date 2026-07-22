@@ -1,30 +1,59 @@
 name: docs
 
-# Build the unified C++/Python API documentation and publish it to GitHub Pages.
-# One-time setup: repo Settings -> Pages -> Source = "GitHub Actions".
+# Build the C++/Python API documentation and publish it to the gh-pages branch,
+# one subdirectory per version:
+#   dev/        -> built from main
+#   latest/     -> copy of the newest published tag
+#   vX.Y.Z/     -> per-tag builds (frozen; never rebuilt)
+# A single switcher.json at the branch root lists the published versions and
+# drives the sidebar version switcher (see docs/_static/version-switcher.js).
+#
+# One-time setup:
+#   1. repo Settings -> Pages -> Source = "Deploy from a branch", branch
+#      "gh-pages", folder "/" (root). The gh-pages branch is created on the first
+#      run if it does not exist.
+#   2. Generate an SSH keypair; add the public key as a repo Deploy Key with
+#      "Allow write access" and the private key as the ACTIONS_DEPLOY_KEY secret.
+#      Publishing pushes over this key, so the workflow GITHUB_TOKEN stays
+#      contents:read and cannot push to other branches (e.g. main).
+#
+# Only release tags matching v<major>.<minor>.<patch> publish. Pre-release tags
+# (e.g. v1.0.0-rc1) do not match the filter and are not built or published;
+# gen_switcher.py's version regex would reject them from the switcher anyway.
 
 on:
   push:
     branches: [main]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: read  # publishing to gh-pages uses ACTIONS_DEPLOY_KEY, not GITHUB_TOKEN
 
-# Allow one concurrent deployment; cancel in-progress runs superseded by newer pushes.
+# Serialize deployments so concurrent runs do not race on the gh-pages branch.
+# Do not cancel in progress: a cancelled tag run could leave latest/ half-written.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: docs-pages
+  cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # setuptools-scm needs full history + tags to derive the version
+
+      - name: Determine the version slug for this build
+        # A tag push publishes under the tag name; gen_switcher.py then refreshes
+        # latest/ to track the newest tag. Any other trigger (push to main,
+        # workflow_dispatch) publishes under dev/.
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "SLUG=${GITHUB_REF#refs/tags/}" >> "$GITHUB_ENV"
+          else
+            echo "SLUG=dev" >> "$GITHUB_ENV"
+          fi
 
       - name: Install Doxygen
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends doxygen graphviz
@@ -40,18 +69,37 @@ jobs:
         run: pip install -r docs/requirements.txt
 
       - name: Build the documentation
+        env:
+          PHEPEX_DOC_VERSION: ${{ env.SLUG }}
         run: sphinx-build -b html docs docs/_build/html -W --keep-going
 
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: docs/_build/html
+      - name: Assemble the full site tree from the existing gh-pages branch
+        # Extract the current gh-pages tree (if any), drop in this build under its
+        # version subdir, then regenerate the root switcher.json / index.html /
+        # .nojekyll and refresh latest/ from whatever versions are present.
+        # gen_switcher.py derives latest/ from the highest vX.Y.Z tag dir, so
+        # build order does not matter: pushing a backport tag older than the
+        # current newest does not move latest/. The assembled tree is published as
+        # a full replacement (force_orphan), so the branch stays a single commit
+        # and cannot accumulate stale files.
+        run: |
+          set -euo pipefail
+          mkdir site
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch origin gh-pages
+            git archive origin/gh-pages | tar -x -C site
+          fi
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v5
+          rm -rf "site/${SLUG}"
+          mkdir -p "site/${SLUG}"
+          cp -a docs/_build/html/. "site/${SLUG}/"
+
+          python docs/gen_switcher.py site
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          publish_branch: gh-pages
+          publish_dir: ./site
+          force_orphan: true  # full replacement; branch stays a single commit
