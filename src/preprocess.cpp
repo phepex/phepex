@@ -146,10 +146,13 @@ SampleRange preprocess_valid_range(int upsampling, float pole_zero,
         left += fwhm;
     }
 
-    if (left >= num_samples || right >= num_samples)
+    // `left`/`right` are margins in UPSAMPLED samples, so they trim the
+    // upsampling*num_samples output, not the raw num_samples input.
+    const int n_up = upsampling * num_samples;
+    if (left >= n_up - right)  // margins meet or cross => nothing trustworthy
         return {0, 0};
 
-    return {left, num_samples - right};
+    return {left, n_up - right};
 }
 
 }  // namespace phepex

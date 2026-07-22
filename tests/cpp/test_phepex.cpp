@@ -300,6 +300,9 @@ void refPreprocess(const std::uint16_t *src, int n, int up, float pole_zero,
     }
 }
 
+// Expected preprocess_valid_range. The margins are in UPSAMPLED samples, so the range
+// indexes the up*num_samples output; with no smoothing this equals
+// deconvolve_valid_range.
 std::pair<int, int> refValidRange(int up, float pole_zero,
                                   const phepex::SmoothingCoefficients *sm,
                                   int num_samples) {
@@ -312,9 +315,10 @@ std::pair<int, int> refValidRange(int up, float pole_zero,
         right += fwhm;
         left += fwhm;
     }
-    if (left >= num_samples || right >= num_samples)
+    const int n_up = up * num_samples;
+    if (left >= n_up - right)
         return {0, 0};
-    return {left, num_samples - right};
+    return {left, n_up - right};
 }
 
 }  // namespace
@@ -361,7 +365,7 @@ TEST_CASE("preprocess_waveform float and uint16 overloads agree", "[preprocess]"
     REQUIRE(std::memcmp(a.data(), b.data(), a.size() * sizeof(float)) == 0);
 }
 
-TEST_CASE("preprocess_valid_range matches the frozen libdvr formula", "[preprocess]") {
+TEST_CASE("preprocess_valid_range trims the upsampled output", "[preprocess]") {
     for (int up : {1, 2, 4, 8}) {
         for (float pz : {0.0f, 0.9f}) {
             for (double fwhm : {-1.0, 1.5, 4.0}) {
@@ -376,6 +380,15 @@ TEST_CASE("preprocess_valid_range matches the frozen libdvr formula", "[preproce
                     auto e = refValidRange(up, pz, sm, ns);
                     REQUIRE(r.lo == e.first);
                     REQUIRE(r.hi == e.second);
+                    // Without smoothing a non-empty range must coincide with
+                    // deconvolve_valid_range (shared upsample+pole-zero edge
+                    // contamination). deconvolve_valid_range has no empty-range guard, so
+                    // the degenerate {0,0} case (tiny ns) is compared only above.
+                    if (sm == nullptr && r.lo < r.hi) {
+                        auto d = phepex::deconvolve_valid_range(up, ns, pz);
+                        REQUIRE(r.lo == d.lo);
+                        REQUIRE(r.hi == d.hi);
+                    }
                 }
             }
         }
