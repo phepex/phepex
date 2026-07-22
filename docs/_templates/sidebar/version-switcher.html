@@ -1,0 +1,21 @@
+{#-
+  Furo sidebar component: documentation version switcher.
+
+  The container is rendered with the `hidden` attribute (display:none, zero space)
+  and is revealed by docs/_static/version-switcher.js only after switcher.json
+  (named by data-switcher-url) has been fetched and yielded at least one entry.
+  Consequences of this contract:
+    - JavaScript disabled  -> stays hidden (no empty box, no reserved space).
+    - switcher.json 404/CORS/parse failure -> stays hidden.
+    - successful load       -> JS fills the <select>, preselects the entry whose
+      "version" equals data-current-version, and reveals the container.
+-#}
+<div class="phepex-version-switcher" hidden
+     data-current-version="{{ phepex_current_version }}"
+     data-switcher-url="{{ phepex_switcher_url }}">
+  <label class="phepex-version-switcher__label">
+    <span>Version</span>
+    <select class="phepex-version-switcher__select"
+            aria-label="Select documentation version"></select>
+  </label>
+</div>

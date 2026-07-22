@@ -15,6 +15,9 @@ This site documents the installation process and **both** API surfaces:
 
 Use the search box (top-left) to jump to any symbol across both languages.
 
+Use the version switcher (bottom-left) to jump to the documentation of a specific
+version.
+
 ```{toctree}
 :hidden:
 :maxdepth: 2

@@ -1,0 +1,55 @@
+/* Styling for the sidebar version switcher (docs/_templates/sidebar/version-switcher.html).
+   Colors are taken from furo's CSS variables so light/dark themes are handled by
+   furo without a separate dark-mode rule here.
+
+   Visibility is controlled by version-switcher.js: the element is rendered with
+   the `hidden` attribute and revealed by removing it and adding .is-visible after
+   switcher.json loads. The `[hidden]` guard below keeps a hidden element out of
+   layout even though the base rule sets opacity:0 (opacity alone would still
+   occupy space). */
+
+.phepex-version-switcher[hidden] {
+  display: none;
+}
+
+.phepex-version-switcher {
+  /* Footer position, below the nav tree, outside furo's .sidebar-scroll. The
+     bottom padding separates the control from the sidebar/viewport edge. */
+  margin: 0.5rem 0 0;
+  padding: 0.5rem var(--sidebar-item-spacing-horizontal, 1rem) 1rem;
+  border-top: 1px solid var(--color-background-border);
+  /* Fade in on reveal; only opacity is animated, so no reflow of neighbours. */
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.phepex-version-switcher.is-visible {
+  opacity: 1;
+}
+
+.phepex-version-switcher__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--font-size--small, 0.8125rem);
+  color: var(--color-sidebar-caption-text, var(--color-foreground-muted));
+}
+
+.phepex-version-switcher__label > span {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.phepex-version-switcher__select {
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  /* Match furo's search input, which sizes its text at 100% (the normalize reset
+     on input/select/textarea); only the search placeholder is --font-size--small. */
+  font-size: 100%;
+  color: var(--color-foreground-primary);
+  background-color: var(--color-background-secondary);
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
