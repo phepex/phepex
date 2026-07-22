@@ -25,11 +25,15 @@ from .kernels import (
     extract_around_peak,
     neighbor_peak_indices,
     pos_soft_clip,
+    preprocess,
+    preprocess_valid_range,
 )
 
 __all__ = [
     "generate_waveforms",
     "deconvolve",
+    "preprocess",
+    "preprocess_valid_range",
     "pos_soft_clip",
     "neighbor_peak_indices",
     "extract_around_peak",

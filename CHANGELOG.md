@@ -31,6 +31,15 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
   published.
 
 ### Added
+- `phepex.preprocess` and `phepex.preprocess_valid_range` Python bindings over the C++
+  `preprocess_waveform` / `preprocess_valid_range` kernels. `preprocess` is a batched wrapper
+  that applies the single-waveform kernel to every `(channel, pixel)` row of a
+  `(n_channels, n_pix, n_samples)` array, returning float32
+  `(n_channels, n_pix, n_samples*upsampling)`. `pole_zero`, `baseline` and `scale` are each
+  independently a scalar, a per-pixel `(n_pix,)` array, or a `(n_channels, n_pix)` array;
+  smoothing is enabled by a positive `smoothing_fwhm` (`0`/`None` disables it) with the
+  Deriche coefficients computed once and shared across rows. With `smoothing_fwhm=0` the
+  result matches `deconvolve` bit-for-bit (shared upsample kernel).
 - Documentation version switcher in the furo sidebar. A `switcher.json` at the site root lists
   the published versions; `docs/_static/version-switcher.js` fetches it at runtime and fills a
   `<select>`. The control is server-rendered with the `hidden` attribute and revealed only
