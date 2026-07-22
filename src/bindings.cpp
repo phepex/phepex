@@ -131,8 +131,8 @@ neighbor_peak_indices(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> wavefo
     // rules, so this reinterpret is well-defined (unlike char storage read as bool*).
     phepex::neighbor_peak_indices(
         waveforms.data(), n_ch, n_pix, n_up, indptr.data(), indices.data(), local_weight,
-        reinterpret_cast<const std::uint8_t *>(broken_pixels.data()), sample_lo, sample_hi,
-        out);
+        reinterpret_cast<const std::uint8_t *>(broken_pixels.data()), sample_lo,
+        sample_hi, out);
     std::size_t shape[2] = {static_cast<std::size_t>(n_ch),
                             static_cast<std::size_t>(n_pix)};
     return nb::ndarray<nb::numpy, std::int64_t>(out, 2, shape, make_deleter(out));
@@ -171,6 +171,74 @@ adaptive_centroid(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms,
     return nb::ndarray<nb::numpy, float>(out, 2, shape, make_deleter(out));
 }
 
+// preprocess_waveform is a single-waveform (1-D) kernel; this wrapper applies it to every
+// (channel, pixel) row of a 3-D batch. pole_zero/baseline/scale arrive as (n_ch*n_pix,)
+// float32 arrays (the Python wrapper broadcasts scalar or per-pixel inputs to this
+// length), so each row uses its own value -- the per-(channel, pixel) semantics of
+// deconvolve_upsample. smoothing_fwhm > 0 enables the Deriche IIR pass with coefficients
+// computed once and shared across rows.
+nb::ndarray<nb::numpy, float>
+preprocess(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms, int upsampling,
+           nb::ndarray<const float, nb::ndim<1>, nb::c_contig> pole_zero,
+           double smoothing_fwhm,
+           nb::ndarray<const float, nb::ndim<1>, nb::c_contig> baseline,
+           nb::ndarray<const float, nb::ndim<1>, nb::c_contig> scale) {
+    const int n_ch = static_cast<int>(waveforms.shape(0));
+    const int n_pix = static_cast<int>(waveforms.shape(1));
+    const int n_samples = static_cast<int>(waveforms.shape(2));
+    const std::size_t n_rows = static_cast<std::size_t>(n_ch) * n_pix;
+    if (pole_zero.shape(0) != n_rows || baseline.shape(0) != n_rows ||
+        scale.shape(0) != n_rows)
+        throw std::invalid_argument(
+            "pole_zero, baseline and scale must each have length n_channels*n_pix");
+
+    // smoothing_fwhm == 0 disables smoothing; calculate_smoothing_coefficients divides by
+    // fwhm/2.1, so it must not be called with a non-positive width.
+    phepex::SmoothingCoefficients sc;
+    const phepex::SmoothingCoefficients *sm = nullptr;
+    if (smoothing_fwhm > 0.0) {
+        sc = phepex::calculate_smoothing_coefficients(smoothing_fwhm);
+        sm = &sc;
+    }
+
+    const std::size_t out_row = static_cast<std::size_t>(n_samples) * upsampling;
+    float *out = new float[n_rows * out_row];
+
+    // The scratch buffer is only read/written within a single preprocess_waveform call
+    // (smoothing path), so one buffer can be reused across the sequential row loop.
+    std::vector<float> scratch;
+    float *scratch_ptr = nullptr;
+    if (sm != nullptr) {
+        scratch.resize(out_row);
+        scratch_ptr = scratch.data();
+    }
+
+    const float *src = waveforms.data();
+    const float *pz = pole_zero.data();
+    const float *bl = baseline.data();
+    const float *scl = scale.data();
+    for (std::size_t r = 0; r < n_rows; r++)
+        phepex::preprocess_waveform(src + r * n_samples, n_samples, upsampling, pz[r], sm,
+                                    bl[r], scl[r], out + r * out_row, scratch_ptr);
+
+    std::size_t shape[3] = {static_cast<std::size_t>(n_ch),
+                            static_cast<std::size_t>(n_pix), out_row};
+    return nb::ndarray<nb::numpy, float>(out, 3, shape, make_deleter(out));
+}
+
+std::pair<int, int> preprocess_valid_range(int upsampling, double pole_zero,
+                                           double smoothing_fwhm, int n_samples) {
+    phepex::SmoothingCoefficients sc;
+    const phepex::SmoothingCoefficients *sm = nullptr;
+    if (smoothing_fwhm > 0.0) {
+        sc = phepex::calculate_smoothing_coefficients(smoothing_fwhm);
+        sm = &sc;
+    }
+    const phepex::SampleRange r = phepex::preprocess_valid_range(
+        upsampling, static_cast<float>(pole_zero), sm, n_samples);
+    return {r.lo, r.hi};
+}
+
 nb::ndarray<nb::numpy, float>
 generate_waveforms(nb::ndarray<const double, nb::ndim<2>, nb::c_contig> charge,
                    nb::ndarray<const double, nb::ndim<2>, nb::c_contig> time_ns,
@@ -204,6 +272,17 @@ NB_MODULE(_core, m) {
     m.def("deconvolve_valid_range", &deconvolve_valid_range, nb::arg("upsampling"),
           nb::arg("n_samples"), nb::arg("pole_zero"),
           "Trustworthy (non-edge) output-sample range (lo, hi) of deconvolve_upsample.");
+    m.def(
+        "preprocess", &preprocess, nb::arg("waveforms"), nb::arg("upsampling"),
+        nb::arg("pole_zero"), nb::arg("smoothing_fwhm"), nb::arg("baseline"),
+        nb::arg("scale"),
+        "Upsample + pole-zero deconvolution + optional Deriche smoothing per (channel, "
+        "pixel); float32 (n_ch,n_pix,n_samples*upsampling). pole_zero/baseline/scale are "
+        "(n_ch*n_pix,) arrays; smoothing_fwhm <= 0 disables smoothing.");
+    m.def("preprocess_valid_range", &preprocess_valid_range, nb::arg("upsampling"),
+          nb::arg("pole_zero"), nb::arg("smoothing_fwhm"), nb::arg("n_samples"),
+          "Trustworthy (non-edge) output-sample range (lo, hi) of preprocess (DVR "
+          "convention on the raw n_samples).");
     m.def("pos_soft_clip", &pos_soft_clip, nb::arg("waveforms"), nb::arg("scale"),
           nb::arg("sample_lo") = 0, nb::arg("sample_hi") = 0,
           "Positive soft clip max(soft_clip(waveforms/scale), 0) over [sample_lo, "
