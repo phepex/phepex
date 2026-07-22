@@ -44,6 +44,14 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
   each supported interpreter, full pytest suite with the ctapipe reference on one).
 
 ### Fixed
+- `preprocess_valid_range` computed its upper bound as `num_samples - right`, subtracting an
+  upsampled-sample margin from the RAW (pre-upsample) sample count while the lower bound and
+  the `right` margin are already in upsampled samples. For `upsampling > 1` this returned a
+  range far shorter than the `upsampling*num_samples` output (e.g. `(6, 34)` instead of
+  `(6, 154)` for `upsampling=4, num_samples=40`), and produced inverted ranges (`lo > hi`)
+  for small `num_samples`. The upper bound is now `upsampling*num_samples - right`, so the
+  range indexes the upsampled output and equals `deconvolve_valid_range` when no smoothing is
+  applied. Output changes for every `upsampling > 1` call.
 - `docs` workflow checks out full git history (`fetch-depth: 0`) so setuptools-scm derives
   the tagged version; published documentation previously reported `0.0.0`.
 - `tests/test_generator.py` imports `astropy.units` after the `pytest.importorskip("ctapipe")`

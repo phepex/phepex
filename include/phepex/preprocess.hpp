@@ -49,12 +49,13 @@ void preprocess_waveform(const float *src, int n_samples, int upsampling, float 
                          const SmoothingCoefficients *smoothing, float offset,
                          float scale, float *out, float *scratch = nullptr);
 
-/// Trustworthy (non-edge) sample range of preprocess_waveform(): the boxcar smoothing
-/// contaminates 2*(upsampling-1) samples at each end, a non-zero pole_zero adds
-/// `upsampling` more invalid samples at the start, and smoothing widens both margins by
-/// floor(fwhm). The upper bound follows the DVR convention `num_samples - right` (using
-/// the RAW, pre-upsample `num_samples`) — this differs from deconvolve_valid_range().
-/// Returns {0, 0} if the margins exceed `num_samples`.
+/// Trustworthy (non-edge) sample range of preprocess_waveform(), as indices into the
+/// `upsampling*num_samples` output. The boxcar smoothing contaminates 2*(upsampling-1)
+/// samples at each end, a non-zero pole_zero adds `upsampling` more invalid samples at
+/// the start, and an optional Deriche pass widens both margins by floor(fwhm). The
+/// margins are in upsampled samples, so the range is
+/// {left, upsampling*num_samples - right} -- matching deconvolve_valid_range() when no
+/// smoothing is applied. Returns {0, 0} when the margins leave no trustworthy samples.
 SampleRange preprocess_valid_range(int upsampling, float pole_zero,
                                    const SmoothingCoefficients *smoothing,
                                    int num_samples);
