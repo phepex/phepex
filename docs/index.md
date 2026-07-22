@@ -11,6 +11,7 @@ This site documents the installation process and **both** API surfaces:
 - [C++ API](cpp/index) — the `phepex::` kernels (from the public headers).
 - [Python API](python/index) — the `phepex` package: numpy kernel wrappers and the
   ctapipe-integrated `FastFlashCamExtractor`.
+- [Changelog](changelog) — notable changes per version.
 
 Use the search box (top-left) to jump to any symbol across both languages.
 
@@ -21,4 +22,5 @@ Use the search box (top-left) to jump to any symbol across both languages.
 getting-started
 cpp/index
 python/index
+changelog
 ```
