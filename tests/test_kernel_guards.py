@@ -41,6 +41,29 @@ def test_deconvolve_2d_input_promotes_leading_axis():
     assert np.array_equal(out2d, out3d)
 
 
+def test_deconvolve_upsampling_one_pole_zero_zero_preserves_first_sample():
+    """up==1, pole_zero==0 is just wf-baseline; the first sample is NOT zeroed.
+
+    Regression: the old numpy path unconditionally set sample 0 to 0, which contradicts
+    deconvolve_valid_range(1, n, 0) == (0, n) (sample 0 is valid when there is no
+    deconvolution). The C++ backend preserves it.
+    """
+    wf = np.random.default_rng(2).normal(50, 10, (1, 4, 12)).astype(np.float32)
+    baseline = 5.0
+    out = deconvolve(wf, baseline, 1, 0.0)
+    expected = (wf - np.float32(baseline)).astype(np.float32)
+    assert np.array_equal(out, expected)  # includes sample 0
+    assert out[0, 0, 0] != 0.0
+
+
+@pytest.mark.parametrize("bad", [0, -1])
+def test_deconvolve_rejects_upsampling_below_one(bad):
+    """upsampling < 1 is out of contract and rejected (no silent zero-width output)."""
+    wf = np.ones((1, 4, 20), np.float32)
+    with pytest.raises(ValueError):
+        deconvolve(wf, 0.0, bad, 0.5)
+
+
 def test_pos_soft_clip_2d_input_promotes_leading_axis():
     """sub-3D inputs get the new axis PREPENDED (channel), not appended"""
     wf2d = np.random.default_rng(1).normal(0, 10, (6, 20)).astype(np.float32)

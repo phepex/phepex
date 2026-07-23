@@ -22,19 +22,21 @@
 
 using Catch::Approx;
 
-TEST_CASE("deconvolve_valid_range", "[deconvolve]") {
+TEST_CASE("preprocess_valid_range (no smoothing): hand-computed", "[preprocess]") {
+    // With smoothing == nullptr this is the deconvolution edge range.
     // pole_zero != 0 : lo = 3U-2, hi = U*n - 2(U-1)
-    auto r = phepex::deconvolve_valid_range(4, 22, 0.76);
+    auto r = phepex::preprocess_valid_range(4, 0.76f, nullptr, 22);
     REQUIRE(r.lo == 10);
     REQUIRE(r.hi == 82);
     // pole_zero == 0 : lo = 2(U-1)
-    auto r0 = phepex::deconvolve_valid_range(4, 22, 0.0);
+    auto r0 = phepex::preprocess_valid_range(4, 0.0f, nullptr, 22);
     REQUIRE(r0.lo == 6);
     REQUIRE(r0.hi == 82);
 }
 
-TEST_CASE("deconvolve_upsample: shape, DC gain, linearity", "[deconvolve]") {
-    const int n_ch = 1, n_pix = 1, n = 12, up = 4;
+TEST_CASE("preprocess_waveform (no smoothing): shape, DC gain, linearity",
+          "[preprocess]") {
+    const int n = 12, up = 4;
     const float c = 5.0f;
     std::vector<float> x(n, c);
     std::vector<float> out(static_cast<std::size_t>(n) * up);
@@ -42,9 +44,9 @@ TEST_CASE("deconvolve_upsample: shape, DC gain, linearity", "[deconvolve]") {
     SECTION("DC input -> interior == c*(1-pole_zero)") {
         for (double pz : {0.0, 0.5, 0.75}) {
             const float pzf = static_cast<float>(pz);
-            phepex::deconvolve_upsample(x.data(), n_ch, n_pix, n, up, &pzf, nullptr,
-                                        nullptr, out.data());
-            auto vr = phepex::deconvolve_valid_range(up, n, pz);
+            phepex::preprocess_waveform(x.data(), n, up, pzf, nullptr, 0.0f, 1.0f,
+                                        out.data());
+            auto vr = phepex::preprocess_valid_range(up, pzf, nullptr, n);
             const int mid = (vr.lo + vr.hi) / 2;
             REQUIRE(out[mid] == Approx(c * (1.0 - pz)).margin(1e-4));
             for (float v : out)
@@ -54,9 +56,8 @@ TEST_CASE("deconvolve_upsample: shape, DC gain, linearity", "[deconvolve]") {
     SECTION("linearity: deconv(2x) == 2*deconv(x)") {
         std::vector<float> x2(n, 2 * c), o1(n * up), o2(n * up);
         const float pzf = 0.5f;
-        phepex::deconvolve_upsample(x.data(), n_ch, n_pix, n, up, &pzf, nullptr, nullptr,
-                                    o1.data());
-        phepex::deconvolve_upsample(x2.data(), n_ch, n_pix, n, up, &pzf, nullptr, nullptr,
+        phepex::preprocess_waveform(x.data(), n, up, pzf, nullptr, 0.0f, 1.0f, o1.data());
+        phepex::preprocess_waveform(x2.data(), n, up, pzf, nullptr, 0.0f, 1.0f,
                                     o2.data());
         for (std::size_t i = 0; i < o1.size(); ++i)
             REQUIRE(o2[i] == Approx(2.0f * o1[i]).margin(1e-5));
@@ -216,7 +217,12 @@ TEST_CASE("generate_waveforms: charge conservation, zero, reproducibility, NSB r
 // preprocess_waveform / preprocess_valid_range: bit-exact against a FROZEN copy of
 // libdvr's original DSP kernels (the extraction oracle). If phepex's kernels ever drift
 // from libdvr's math, these fail. The reference code below is a verbatim copy of libdvr's
-// src/DSP.cpp as of the extraction and must NOT be "cleaned up".
+// src/DSP.cpp as of the extraction and must NOT be "cleaned up", with ONE deliberate
+// exception: the upsampling == 1 path applies the pole-zero correction (see
+// refDeconvolveUnit). libdvr's original DSP.cpp skipped pole-zero at upsampling == 1 (it
+// computed scale*(src-offset)); phepex fixes that latent bug in preprocess_waveform, so
+// the oracle is patched identically here to keep the bit-exact comparison meaningful. The
+// oracle remains a faithful libdvr snapshot for upsampling > 1.
 namespace {
 
 template <typename InputType, typename OutputType>
@@ -277,6 +283,21 @@ void refSmooth(const InputType *x, OutputType *y, int n,
     }
 }
 
+// Unity-upsampling pole-zero deconvolution. Must match preprocess.cpp's
+// deconvolve_unit_upsampling operation-for-operation so the bit-exact comparison holds.
+void refDeconvolveUnit(const std::uint16_t *src, int n, float pole_zero, float offset,
+                       float scale, float *dst) {
+    if (n <= 0)
+        return;
+    float prev = static_cast<float>(src[0]) - offset;
+    dst[0] = scale * prev;
+    for (int i = 1; i < n; i++) {
+        const float cur = static_cast<float>(src[i]) - offset;
+        dst[i] = scale * (cur - pole_zero * prev);
+        prev = cur;
+    }
+}
+
 void refPreprocess(const std::uint16_t *src, int n, int up, float pole_zero,
                    const phepex::SmoothingCoefficients *sm, float offset, float scale,
                    float *out) {
@@ -285,24 +306,21 @@ void refPreprocess(const std::uint16_t *src, int n, int up, float pole_zero,
     if (sm) {
         tmp.resize(dst_samples);
         if (up == 1)
-            for (int i = 0; i < n; i++)
-                tmp[i] = scale * (static_cast<float>(src[i]) - offset);
+            refDeconvolveUnit(src, n, pole_zero, offset, scale, tmp.data());
         else
             refUpsample<std::uint16_t, float>(n, up, src, offset, pole_zero, tmp.data(),
                                               scale);
         refSmooth(tmp.data(), out, dst_samples, *sm);
     } else {
         if (up == 1)
-            for (int i = 0; i < n; i++)
-                out[i] = scale * (static_cast<float>(src[i]) - offset);
+            refDeconvolveUnit(src, n, pole_zero, offset, scale, out);
         else
             refUpsample<std::uint16_t, float>(n, up, src, offset, pole_zero, out, scale);
     }
 }
 
 // Expected preprocess_valid_range. The margins are in UPSAMPLED samples, so the range
-// indexes the up*num_samples output; with no smoothing this equals
-// deconvolve_valid_range.
+// indexes the up*num_samples output.
 std::pair<int, int> refValidRange(int up, float pole_zero,
                                   const phepex::SmoothingCoefficients *sm,
                                   int num_samples) {
@@ -380,15 +398,6 @@ TEST_CASE("preprocess_valid_range trims the upsampled output", "[preprocess]") {
                     auto e = refValidRange(up, pz, sm, ns);
                     REQUIRE(r.lo == e.first);
                     REQUIRE(r.hi == e.second);
-                    // Without smoothing a non-empty range must coincide with
-                    // deconvolve_valid_range (shared upsample+pole-zero edge
-                    // contamination). deconvolve_valid_range has no empty-range guard, so
-                    // the degenerate {0,0} case (tiny ns) is compared only above.
-                    if (sm == nullptr && r.lo < r.hi) {
-                        auto d = phepex::deconvolve_valid_range(up, ns, pz);
-                        REQUIRE(r.lo == d.lo);
-                        REQUIRE(r.hi == d.hi);
-                    }
                 }
             }
         }

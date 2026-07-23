@@ -11,9 +11,13 @@
 #include <array>
 #include <cstdint>
 
-#include "phepex/deconvolve.hpp"  // for SampleRange
-
 namespace phepex {
+
+/// Half-open sample range [lo, hi).
+struct SampleRange {
+    int lo;  ///< lower limit (inclusive)
+    int hi;  ///< upper limit (exclusive)
+};
 
 /// Coefficients for the delay-compensated second-order IIR (Deriche 1992) Gaussian-like
 /// smoothing applied by preprocess_waveform().
@@ -31,7 +35,11 @@ SmoothingCoefficients calculate_smoothing_coefficients(double smoothing_fwhm);
 /// smoothing. Repeats each of the `n_samples` inputs `upsampling` times, subtracts
 /// `offset` and applies `scale`, corrects a single-pole decay `pole_zero`, and smooths
 /// with two `upsampling`-wide moving averages; when `smoothing != nullptr` an additional
-/// Deriche IIR pass is applied. `upsampling == 1` degenerates to scale*(src - offset).
+/// Deriche IIR pass is applied. At `upsampling == 1` the two moving averages are width-1
+/// (identity), so the result is the pole-zero-corrected signal
+/// scale*((src[i]-offset) - pole_zero*(src[i-1]-offset)) with out[0] =
+/// scale*(src[0]-offset); it degenerates to scale*(src - offset) only when `pole_zero ==
+/// 0`.
 ///
 /// Writes `n_samples*upsampling` floats to `out` (caller-allocated). All arithmetic is
 /// float32; `offset`/`scale`/`pole_zero` are float on purpose (bit-exactness).
@@ -54,8 +62,8 @@ void preprocess_waveform(const float *src, int n_samples, int upsampling, float 
 /// samples at each end, a non-zero pole_zero adds `upsampling` more invalid samples at
 /// the start, and an optional Deriche pass widens both margins by floor(fwhm). The
 /// margins are in upsampled samples, so the range is
-/// {left, upsampling*num_samples - right} -- matching deconvolve_valid_range() when no
-/// smoothing is applied. Returns {0, 0} when the margins leave no trustworthy samples.
+/// {left, upsampling*num_samples - right}. Returns {0, 0} when the margins leave no
+/// trustworthy samples.
 SampleRange preprocess_valid_range(int upsampling, float pole_zero,
                                    const SmoothingCoefficients *smoothing,
                                    int num_samples);

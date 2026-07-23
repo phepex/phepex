@@ -4,24 +4,16 @@ The public `phepex::` kernels, grouped by header. Include everything via the umb
 `<phepex/phepex.hpp>`, or a single header for one kernel. Each function's description below is
 rendered from its own header documentation.
 
-## Deconvolution & upsampling
-
-Declared in `<phepex/deconvolve.hpp>`.
-
-```{doxygenfunction} phepex::deconvolve_upsample
-```
-
-```{doxygenstruct} phepex::SampleRange
-:members:
-```
-
-```{doxygenfunction} phepex::deconvolve_valid_range
-```
-
 ## Waveform preprocessing
 
 Declared in `<phepex/preprocess.hpp>`. Single-waveform upsampling + pole-zero deconvolution
 with optional Deriche (1992) Gaussian smoothing, plus its DVR-convention valid range.
+Pole-zero deconvolution without smoothing is just `preprocess_waveform` with
+`smoothing == nullptr`.
+
+```{doxygenstruct} phepex::SampleRange
+:members:
+```
 
 ```{doxygenstruct} phepex::SmoothingCoefficients
 :members:

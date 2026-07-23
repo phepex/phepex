@@ -24,7 +24,7 @@ All kernels are free functions in namespace `phepex`, operating on caller-owned 
 
 ```cpp
 #include <phepex/phepex.hpp>
-// phepex::deconvolve_upsample(wf, n_ch, n_pix, n_samples, upsampling, pole_zero, base, scale, out);
+// phepex::preprocess_waveform(wf, n_samples, upsampling, pole_zero, smoothing, offset, scale, out);
 // phepex::pos_soft_clip / neighbor_peak_indices / extract_around_peak / adaptive_centroid / generate_waveforms
 ```
 

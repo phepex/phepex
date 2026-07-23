@@ -56,12 +56,42 @@ void smooth_waveform(const InputType *x, OutputType *y, int n,
     }
 }
 
+// Unity-upsampling (upsampling == 1) pole-zero deconvolution. At upsampling == 1 the two
+// moving-average boxcars in detail::upsample_waveform are width-1 (identity), so its
+// runsum machinery reduces to the plain pole-zero difference computed directly here; the
+// closed form also skips the two accumulating running sums, yielding
+// scale*((src[i]-offset) - pole_zero*(src[i-1]-offset)) without their intermediate
+// accumulation. dst[0] has no predecessor and so carries no pole-zero term (matching the
+// upsampling>1 kernel, whose leading samples are trimmed by preprocess_valid_range).
+template <typename InputType>
+void deconvolve_unit_upsampling(const InputType *src, int n_samples, float pole_zero,
+                                float offset, float scale, float *dst) {
+    if (n_samples <= 0)
+        return;
+    // pole_zero == 0 is a pure map dst[i] = scale*(src[i]-offset) with no loop-carried
+    // dependency, so the compiler auto-vectorises it. The general loop below cannot prove
+    // pole_zero == 0 at compile time, so it keeps the `prev` recurrence and stays scalar.
+    // Bit-identical to the general path here, since cur - 0.0f*prev == cur, and free for
+    // pole_zero != 0 (one branch, no measurable regression).
+    if (pole_zero == 0.0f) {
+        for (int i = 0; i < n_samples; i++)
+            dst[i] = scale * (static_cast<float>(src[i]) - offset);
+        return;
+    }
+    float prev = static_cast<float>(src[0]) - offset;
+    dst[0] = scale * prev;
+    for (int i = 1; i < n_samples; i++) {
+        const float cur = static_cast<float>(src[i]) - offset;
+        dst[i] = scale * (cur - pole_zero * prev);
+        prev = cur;
+    }
+}
+
 // Shared body of the two preprocess_waveform overloads (uint16 and float input).
 template <typename InputType>
 void preprocess_impl(const InputType *src, int n_samples, int upsampling, float pole_zero,
                      const SmoothingCoefficients *smoothing, float offset, float scale,
                      float *out, float *scratch) {
-    const std::size_t src_samples = static_cast<std::size_t>(n_samples);
     const std::size_t dst_samples = static_cast<std::size_t>(upsampling) * n_samples;
 
     if (smoothing) {
@@ -72,8 +102,7 @@ void preprocess_impl(const InputType *src, int n_samples, int upsampling, float 
             tmp = owned.data();
         }
         if (upsampling == 1)
-            for (std::size_t i = 0; i < src_samples; i++)
-                tmp[i] = scale * (static_cast<float>(src[i]) - offset);
+            deconvolve_unit_upsampling(src, n_samples, pole_zero, offset, scale, tmp);
         else
             detail::upsample_waveform<InputType, float>(n_samples, upsampling, src,
                                                         offset, pole_zero, tmp, scale);
@@ -81,8 +110,7 @@ void preprocess_impl(const InputType *src, int n_samples, int upsampling, float 
         smooth_waveform(tmp, out, static_cast<int>(dst_samples), *smoothing);
     } else {
         if (upsampling == 1)
-            for (std::size_t i = 0; i < src_samples; i++)
-                out[i] = scale * (static_cast<float>(src[i]) - offset);
+            deconvolve_unit_upsampling(src, n_samples, pole_zero, offset, scale, out);
         else
             detail::upsample_waveform<InputType, float>(n_samples, upsampling, src,
                                                         offset, pole_zero, out, scale);

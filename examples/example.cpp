@@ -5,8 +5,8 @@
 // If a copy of the MPL was not distributed with this file, You can obtain one at
 // https://mozilla.org/MPL/2.0/.
 
-// Minimal standalone C++ user of libphepex: deconvolve -> clip -> neighbour peak ->
-// extract.
+// Minimal standalone C++ user of libphepex: preprocess (deconvolve) -> clip -> neighbour
+// peak -> extract.
 //
 // Build with CMake:   find_package(phepex REQUIRED); target_link_libraries(app
 // phepex::phepex) or with pkg-config: g++ -std=c++17 example.cpp $(pkg-config --cflags
@@ -32,18 +32,19 @@ int main() {
         wf[2 * n_samples + s] = 0.3f * pulse[s];  // pixel 2
     }
 
-    // Pole-zero deconvolution + upsampling. pole_zero/baseline/scale are per-(channel,
-    // pixel); here every pixel shares pole_zero=0.75 (baseline/scale left at the
-    // defaults 0/1 via nullptr).
+    // Pole-zero deconvolution + upsampling, applied per (channel, pixel) row with the
+    // single-waveform preprocess kernel and smoothing disabled. Here every pixel shares
+    // pole_zero=0.75 (offset/scale at the defaults 0/1).
     std::vector<float> deconv(static_cast<std::size_t>(n_ch) * n_pix * n_up);
-    std::vector<float> pole_zero(static_cast<std::size_t>(n_ch) * n_pix, 0.75f);
-    phepex::deconvolve_upsample(wf.data(), n_ch, n_pix, n_samples, upsampling,
-                                pole_zero.data(), /*baseline=*/nullptr, /*scale=*/nullptr,
-                                deconv.data());
+    for (int p = 0; p < n_ch * n_pix; ++p)
+        phepex::preprocess_waveform(wf.data() + p * n_samples, n_samples, upsampling,
+                                    /*pole_zero=*/0.75f, /*smoothing=*/nullptr,
+                                    /*offset=*/0.0f, /*scale=*/1.0f,
+                                    deconv.data() + p * n_up);
 
     // Neighbour-sum peak search over the valid sample range.
-    const phepex::SampleRange vr =
-        phepex::deconvolve_valid_range(upsampling, n_samples, 0.75);
+    const phepex::SampleRange vr = phepex::preprocess_valid_range(
+        upsampling, 0.75f, /*smoothing=*/nullptr, n_samples);
     // CSR line graph: 0-1-2 (pixel 1 neighbours 0 and 2).
     const std::int32_t indptr[4] = {0, 1, 3, 4};
     const std::int32_t indices[4] = {1, 0, 2, 1};
