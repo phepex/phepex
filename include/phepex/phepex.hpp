@@ -20,7 +20,6 @@
 /// depend only on the C++ standard library.
 
 #include "phepex/clip.hpp"
-#include "phepex/deconvolve.hpp"
 #include "phepex/extract.hpp"
 #include "phepex/generate.hpp"
 #include "phepex/neighbor.hpp"

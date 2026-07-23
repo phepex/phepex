@@ -13,9 +13,9 @@ kernel is already validated bit-for-bit against the frozen libdvr oracle in
 the scalar/per-pixel broadcasting of ``pole_zero``/``baseline``/``scale``, shape/dtype of
 the result, and the valid-range formula.
 
-The no-smoothing path shares ``detail::upsample_waveform`` with ``deconvolve_upsample``,
-so ``preprocess(..., smoothing_fwhm=0)`` is used as a bit-exact cross-check against
-``deconvolve``.
+``deconvolve`` is now a thin wrapper over ``preprocess`` (smoothing disabled), so
+``preprocess(..., smoothing_fwhm=0)`` and ``deconvolve`` share the same kernel; the
+cross-checks here assert that equivalence.
 """
 
 import math
@@ -75,12 +75,38 @@ def test_none_smoothing_equals_zero():
 
 
 def test_upsampling_one_no_smoothing_is_scale_minus_baseline():
-    """upsampling=1, no smoothing degenerates to scale*(wf - baseline), exactly."""
+    """upsampling=1, no smoothing, pole_zero=0 degenerates to scale*(wf - baseline)."""
     wf = _wf(seed=3)
     baseline, scale = 5.0, 0.5
     out = preprocess(wf, 1, 0.0, smoothing_fwhm=0.0, baseline=baseline, scale=scale)
     expected = (np.float32(scale) * (wf - np.float32(baseline))).astype(np.float32)
     assert np.array_equal(out, expected)
+
+
+def test_upsampling_one_applies_pole_zero():
+    """upsampling=1 applies the pole-zero correction (regression: it was skipped).
+
+    Independent numpy reference of the closed form the kernel computes at up==1:
+    out[0] = scale*(wf[0]-baseline); out[i] = scale*((wf[i]-baseline) -
+    pole_zero*(wf[i-1]-baseline)). Compared with a tolerance rather than bit-for-bit: the
+    C++ kernel contracts `cur - pole_zero*prev` into a fused multiply-add (single
+    rounding), which numpy's separate multiply/subtract does not reproduce (~1 ULP).
+    """
+    wf = _wf(seed=3)
+    baseline, scale, pole_zero = 5.0, 0.5, 0.9
+    out = preprocess(wf, 1, pole_zero, smoothing_fwhm=0.0, baseline=baseline, scale=scale)
+
+    d = (wf - np.float32(baseline)).astype(np.float32)
+    expected = np.empty_like(d)
+    expected[..., 0] = np.float32(scale) * d[..., 0]
+    expected[..., 1:] = np.float32(scale) * (
+        d[..., 1:] - np.float32(pole_zero) * d[..., :-1]
+    )
+    assert np.allclose(out, expected, rtol=1e-6, atol=1e-6)
+    # The pole-zero term must actually change the result (guards against a silent skip):
+    # the previous behaviour returned scale*(wf-baseline) and ignored pole_zero.
+    plain = (np.float32(scale) * d).astype(np.float32)
+    assert not np.allclose(out[..., 1:], plain[..., 1:])
 
 
 def test_per_pixel_matches_per_row_scalar_calls():
@@ -99,6 +125,27 @@ def test_per_pixel_matches_per_row_scalar_calls():
             wf[:, p : p + 1], up, float(pz[p]), baseline=float(bl[p]), scale=float(sc[p])
         )
         assert np.array_equal(batched[:, p : p + 1], row)
+
+
+def test_deconvolve_accepts_per_pixel_pole_zero():
+    """deconvolve takes a per-pixel pole_zero (like preprocess).
+
+    Verified two ways: the per-pixel call equals looping a scalar deconvolve over each
+    pixel, and it equals preprocess with the same per-pixel pole_zero and no smoothing.
+    """
+    wf = _wf(n_ch=1, n_pix=5, n_samples=20, seed=8)
+    n_pix = wf.shape[1]
+    pz = np.random.default_rng(9).uniform(0.0, 0.95, n_pix).astype(np.float32)
+    bl = np.random.default_rng(10).uniform(-2.0, 8.0, n_pix).astype(np.float32)
+    up = 4
+
+    batched = deconvolve(wf, bl, up, pz)
+    for p in range(n_pix):
+        row = deconvolve(wf[:, p : p + 1], float(bl[p]), up, float(pz[p]))
+        assert np.array_equal(batched[:, p : p + 1], row)
+
+    ref = preprocess(wf, up, pz, smoothing_fwhm=0.0, baseline=bl)
+    assert np.array_equal(batched, ref)
 
 
 def test_mixed_scalar_and_per_pixel():
@@ -125,6 +172,15 @@ def test_broken_per_pixel_shape_raises():
     wf = _wf(n_ch=1, n_pix=5, n_samples=20)
     with pytest.raises(ValueError):
         preprocess(wf, 4, np.ones(4, np.float32), baseline=0.0)
+
+
+@pytest.mark.parametrize("bad", [0, -1])
+def test_preprocess_rejects_upsampling_below_one(bad):
+    """upsampling < 1 is rejected: the kernel divides by upsampling^2 and reads out of
+    bounds for upsampling == 0, so it must not reach the C++ side."""
+    wf = _wf(n_ch=1, n_pix=4, n_samples=20)
+    with pytest.raises(ValueError):
+        preprocess(wf, bad, 0.5)
 
 
 @pytest.mark.parametrize("fwhm", [2.0, 4.0, 8.0])

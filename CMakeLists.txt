@@ -45,7 +45,6 @@ option(PHEPEX_BUILD_TESTS "Build the standalone C++ unit tests (vendored Catch2)
 
 # libphepex: built as both shared (libphepex.so) and static (libphepex.a)
 set(PHEPEX_SOURCES
-    src/deconvolve.cpp
     src/preprocess.cpp
     src/clip.cpp
     src/neighbor.cpp

@@ -10,6 +10,22 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
 ## [Unreleased]
 
 ### Changed
+- Deconvolution is unified with preprocessing; the separate deconvolution entry points are
+  removed. Pole-zero deconvolution + upsampling is exactly preprocessing without the
+  optional Deriche pass, so it is now `preprocess_waveform` / `preprocess_valid_range` with
+  `smoothing == nullptr`. Removed in C++: `phepex::deconvolve_upsample` (the 3-D batch) and
+  `phepex::deconvolve_valid_range`; the `phepex/deconvolve.hpp` header is deleted and
+  `SampleRange` now lives in `phepex/preprocess.hpp`. Removed in the extension: the
+  `_core.deconvolve_upsample` and `_core.deconvolve_valid_range` bindings. The public Python
+  API is unchanged: `phepex.deconvolve(waveforms, baselines, upsampling, pole_zero)` and
+  `phepex.deconvolve_valid_range(upsampling, n_samples, pole_zero)` keep their signatures,
+  now implemented as thin wrappers over `phepex.preprocess` / `phepex.preprocess_valid_range`
+  (smoothing disabled). As a result `phepex.deconvolve` also accepts per-pixel
+  `pole_zero`/`baselines` (each independently a scalar, `(n_pix,)`, or `(n_channels, n_pix)`
+  array, matching `preprocess`), where it previously forced `pole_zero` to a scalar. Results
+  are bit-for-bit unchanged for scalar arguments and the ctapipe `FastFlashCamExtractor` is
+  unaffected. One edge-case change: `deconvolve_valid_range` now returns `(0, 0)` instead of
+  an inverted range when `n_samples` is too small to leave any trustworthy samples.
 - `neighbor_peak_indices` takes the broken-pixel mask as `const std::uint8_t *` (nonzero =>
   broken) instead of `const bool *`. Callers held byte storage (`std::vector<char>`/`<unsigned
   char>`) and `reinterpret_cast` it to `bool *`. This was defective on two independent grounds:
@@ -39,7 +55,10 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
   independently a scalar, a per-pixel `(n_pix,)` array, or a `(n_channels, n_pix)` array;
   smoothing is enabled by a positive `smoothing_fwhm` (`0`/`None` disables it) with the
   Deriche coefficients computed once and shared across rows. With `smoothing_fwhm=0` the
-  result matches `deconvolve` bit-for-bit (shared upsample kernel).
+  result matches `deconvolve` bit-for-bit (shared upsample kernel). A scalar
+  `pole_zero`/`baseline`/`scale` is passed to `_core.preprocess` as a length-1 array and
+  applied to every row with row stride 0, so a scalar-argument call does not allocate a
+  full `(n_channels*n_pix,)` array per parameter.
 - Documentation version switcher in the furo sidebar. A `switcher.json` at the site root lists
   the published versions; `docs/_static/version-switcher.js` fetches it at runtime and fills a
   `<select>`. The control is server-rendered with the `hidden` attribute and revealed only
@@ -53,6 +72,30 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
   each supported interpreter, full pytest suite with the ctapipe reference on one).
 
 ### Fixed
+- `phepex.deconvolve` zeroed the first output sample at `upsampling == 1` even when
+  `pole_zero == 0`, where there is no deconvolution and every sample is valid
+  (`deconvolve_valid_range(1, n, 0)` returns `(0, n)`) -- destroying trustworthy data. The
+  Python wrapper had a separate numpy path for `upsampling <= 1` that reproduced this; it is
+  removed, and `deconvolve` now always uses the C++ kernel, which preserves the first sample
+  as `wf - baseline`. At `upsampling == 1, pole_zero == 0` only sample 0 changes (`0` -> the
+  baseline-subtracted value); the interior is unchanged. `deconvolve` now matches ctapipe
+  in the trustworthy region rather than bit-for-bit at `upsampling == 1`, consistent with
+  `upsampling > 1`.
+- `upsampling < 1` is rejected with `ValueError` at the `_core` binding boundary, so it is
+  caught for every caller of `_core.preprocess` / `_core.preprocess_valid_range` (and hence
+  `phepex.preprocess`, `phepex.deconvolve`, `phepex.preprocess_valid_range` and
+  `phepex.deconvolve_valid_range`), not only the `phepex.preprocess` wrapper. Previously
+  `upsampling == 0` reached the C++ kernel via `preprocess`, which divides by `upsampling^2`
+  and reads `output[-1]` out of bounds (undefined behavior); the valid-range path silently
+  clamped `upsampling` to 1 and returned a range for an `upsampling` that `preprocess`
+  itself refuses. Negative values were similarly out of contract (the documented domain is
+  `upsampling >= 1`).
+- `preprocess_waveform` (and the `phepex.preprocess` binding) skipped the pole-zero
+  correction at `upsampling == 1`: the fast path computed `scale*(src - offset)` and ignored
+  `pole_zero`. It now applies the single-pole correction, `out[i] = scale*((src[i]-offset) -
+  pole_zero*(src[i-1]-offset))` with `out[0] = scale*(src[0]-offset)`, consistent with the
+  `upsampling > 1` kernel. The `pole_zero == 0` result is unchanged. Output changes only for
+  `upsampling == 1` with `pole_zero != 0`.
 - `preprocess_valid_range` computed its upper bound as `num_samples - right`, subtracting an
   upsampled-sample margin from the RAW (pre-upsample) sample count while the lower bound and
   the `right` margin are already in upsampled samples. For `upsampling > 1` this returned a

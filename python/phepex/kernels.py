@@ -33,11 +33,15 @@ def _as_3d(waveforms):
 def _per_pixel(x, n_ch, n_pix):
     """Broadcast a scalar / ``(n_pix,)`` / ``(n_ch, n_pix)`` value to contiguous float32.
 
-    Returns a length ``n_ch*n_pix`` array (row-major over ``(channel, pixel)``). A scalar
-    fills every entry; a ``(n_pix,)`` array is broadcast across channels.
-    ``np.broadcast_to`` raises ``ValueError`` for any other shape.
+    A scalar returns a length-1 array; the ``_core`` binding applies it to every row with
+    row stride 0, so a scalar-argument call does not allocate a full ``n_ch*n_pix`` array.
+    A ``(n_pix,)`` or ``(n_ch, n_pix)`` value is broadcast to a length ``n_ch*n_pix``
+    array (row-major over ``(channel, pixel)``). ``np.broadcast_to`` raises ``ValueError``
+    for any other shape.
     """
     a = np.asarray(x, dtype=np.float32)
+    if a.ndim == 0:
+        return np.ascontiguousarray(a.reshape(1), dtype=np.float32)
     a = np.broadcast_to(a, (n_ch, n_pix))
     return np.ascontiguousarray(a, dtype=np.float32).reshape(-1)
 
@@ -55,37 +59,33 @@ __all__ = [
 
 
 def deconvolve(waveforms, baselines, upsampling, pole_zero):
-    """Pole-zero deconvolution + upsampling; drop-in for ctapipe's ``deconvolve``.
+    """Pole-zero deconvolution + upsampling.
 
-    ``waveforms`` (n_channels, n_pix, n_samples); ``baselines`` scalar or per-pixel;
-    ``upsampling`` >= 1. Returns float32 (n_channels, n_pix, n_samples*upsampling).
+    Deconvolution is preprocessing without the optional smoothing pass, so this delegates
+    to `preprocess`. Matches ctapipe's ``deconvolve`` in the trustworthy (non-edge)
+    region; see ``deconvolve_valid_range`` for the edge margins.
+
+    ``waveforms`` is (n_channels, n_pix, n_samples) and ``upsampling`` >= 1. ``pole_zero``
+    and ``baselines`` are each independently a scalar, a per-pixel ``(n_pix,)``, or a
+    ``(n_channels, n_pix)`` array (same broadcasting as `preprocess`). Returns float32
+    ``(n_channels, n_pix, n_samples * upsampling)``.
+
+    At ``upsampling == 1`` with ``pole_zero == 0`` there is no deconvolution, so every
+    sample is valid (``deconvolve_valid_range`` returns ``lo == 0``). ``upsampling < 1``
+    is rejected by ``preprocess``.
     """
-    wf = _as_3d(waveforms)
-
-    baselines = np.asarray(baselines, dtype=np.float32)
-    if baselines.ndim == 0:
-        offset = float(baselines)
-    else:
-        wf = np.ascontiguousarray(wf - baselines.reshape(1, -1, 1), dtype=np.float32)
-        offset = 0.0
-
-    if upsampling <= 1:
-        # rare path (FlashCam default is 4): replicate ctapipe's numpy version exactly
-        d = wf - np.float32(offset)
-        d[..., 1:] -= np.float32(pole_zero) * d[..., :-1]
-        d[..., 0] = 0
-        return d
-
-    return _core.deconvolve_upsample(wf, int(upsampling), float(pole_zero), offset)
+    return preprocess(
+        waveforms, upsampling, pole_zero, smoothing_fwhm=0.0, baseline=baselines
+    )
 
 
 def deconvolve_valid_range(upsampling, n_samples, pole_zero):
-    """Trustworthy (non-edge) output-sample range ``(lo, hi)`` of ``deconvolve``.
+    """Trustworthy (non-edge) output-sample range ``[lo, hi)`` of ``deconvolve``.
 
-    Delegates to the C++ ``deconvolve_valid_range`` so the edge-trim rule has a single
-    source of truth (the same one the C++/test path uses).
+    Deconvolution is preprocessing without smoothing, so this is
+    ``preprocess_valid_range`` with ``smoothing_fwhm == 0``.
     """
-    return _core.deconvolve_valid_range(int(upsampling), int(n_samples), float(pole_zero))
+    return preprocess_valid_range(upsampling, pole_zero, 0.0, n_samples)
 
 
 def preprocess(
@@ -100,14 +100,15 @@ def preprocess(
     ``smoothing_fwhm > 0`` a delay-compensated Deriche (1992) IIR pass of that FWHM (in
     upsampled samples) is applied on top; ``0`` or ``None`` disables it.
 
-    ``waveforms`` (n_channels, n_pix, n_samples); ``upsampling`` >= 1. ``pole_zero``,
-    ``baseline`` and ``scale`` are each independently a scalar, a per-pixel ``(n_pix,)``
-    array, or a full ``(n_channels, n_pix)`` array. Returns float32 (n_channels, n_pix,
+    ``waveforms`` (n_channels, n_pix, n_samples); ``upsampling`` >= 1
+    (``_core.preprocess`` raises ``ValueError`` otherwise). ``pole_zero``, ``baseline``
+    and ``scale`` are each independently a scalar, a per-pixel ``(n_pix,)`` array, or a
+    full ``(n_channels, n_pix)`` array. Returns float32 (n_channels, n_pix,
     n_samples*upsampling).
 
-    With ``smoothing_fwhm=0`` and ``upsampling>1`` the result is bit-identical to
-    ``deconvolve`` (same underlying upsample+pole-zero kernel). Integer inputs (e.g.
-    uint16 ADC samples) are cast to float32.
+    With ``smoothing_fwhm=0`` the result is bit-identical to ``deconvolve`` (same
+    underlying upsample+pole-zero kernel). Integer inputs (e.g. uint16 ADC samples) are
+    cast to float32.
     """
     wf = _as_3d(waveforms)
     n_ch, n_pix, _ = wf.shape
@@ -122,14 +123,14 @@ def preprocess(
 
 
 def preprocess_valid_range(upsampling, pole_zero, smoothing_fwhm, n_samples):
-    """Trustworthy (non-edge) output-sample range ``(lo, hi)`` of ``preprocess``.
+    """Trustworthy (non-edge) output-sample range ``[lo, hi)`` of ``preprocess``.
 
     Depends on ``pole_zero`` only through whether it is nonzero, so a scalar suffices even
     when ``preprocess`` is called with per-pixel values. ``n_samples`` is the RAW
     (pre-upsample) sample count; the returned bounds index the length
-    ``n_samples*upsampling`` output. Uses the DVR convention ``n_samples - right`` for the
-    upper bound, which differs from ``deconvolve_valid_range``. Returns ``(0, 0)`` if the
-    edge margins exceed ``n_samples``.
+    ``n_samples*upsampling`` output. ``deconvolve_valid_range`` is the ``smoothing_fwhm ==
+    0`` case of this function and returns an identical range. Returns ``(0, 0)`` if the
+    edge margins exceed ``n_samples*upsampling``.
     """
     return _core.preprocess_valid_range(
         int(upsampling), float(pole_zero), float(smoothing_fwhm or 0.0), int(n_samples)

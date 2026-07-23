@@ -44,49 +44,6 @@ void validate_range(int sample_lo, int sample_hi, int n_up) {
 }
 
 nb::ndarray<nb::numpy, float>
-deconvolve_upsample(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms,
-                    int upsampling, double pole_zero, double baseline, double scale) {
-    const int n_ch = static_cast<int>(waveforms.shape(0));
-    const int n_pix = static_cast<int>(waveforms.shape(1));
-    const int n_samples = static_cast<int>(waveforms.shape(2));
-    const std::size_t n_out =
-        static_cast<std::size_t>(n_ch) * n_pix * n_samples * upsampling;
-    float *out = new float[n_out];
-    // deconvolve_upsample() takes per-(channel, pixel) arrays but treats a null pointer
-    // as the scalar default (pole_zero = 0, baseline = 0, scale = 1). Only broadcast a
-    // scalar Python argument into a per-pixel array when it differs from that default;
-    // otherwise pass null and skip the allocation.
-    const std::size_t n_rows = static_cast<std::size_t>(n_ch) * n_pix;
-    std::vector<float> pz, bl, sc;
-    const float *pz_ptr = nullptr, *bl_ptr = nullptr, *sc_ptr = nullptr;
-    if (pole_zero != 0.0) {
-        pz.assign(n_rows, static_cast<float>(pole_zero));
-        pz_ptr = pz.data();
-    }
-    if (baseline != 0.0) {
-        bl.assign(n_rows, static_cast<float>(baseline));
-        bl_ptr = bl.data();
-    }
-    if (scale != 1.0) {
-        sc.assign(n_rows, static_cast<float>(scale));
-        sc_ptr = sc.data();
-    }
-    phepex::deconvolve_upsample(waveforms.data(), n_ch, n_pix, n_samples, upsampling,
-                                pz_ptr, bl_ptr, sc_ptr, out);
-    std::size_t shape[3] = {static_cast<std::size_t>(n_ch),
-                            static_cast<std::size_t>(n_pix),
-                            static_cast<std::size_t>(n_samples) * upsampling};
-    return nb::ndarray<nb::numpy, float>(out, 3, shape, make_deleter(out));
-}
-
-std::pair<int, int> deconvolve_valid_range(int upsampling, int n_samples,
-                                           double pole_zero) {
-    const phepex::SampleRange r =
-        phepex::deconvolve_valid_range(upsampling, n_samples, pole_zero);
-    return {r.lo, r.hi};
-}
-
-nb::ndarray<nb::numpy, float>
 pos_soft_clip(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms, float scale,
               int sample_lo, int sample_hi) {
     const int n_ch = static_cast<int>(waveforms.shape(0));
@@ -172,25 +129,40 @@ adaptive_centroid(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms,
 }
 
 // preprocess_waveform is a single-waveform (1-D) kernel; this wrapper applies it to every
-// (channel, pixel) row of a 3-D batch. pole_zero/baseline/scale arrive as (n_ch*n_pix,)
-// float32 arrays (the Python wrapper broadcasts scalar or per-pixel inputs to this
-// length), so each row uses its own value -- the per-(channel, pixel) semantics of
-// deconvolve_upsample. smoothing_fwhm > 0 enables the Deriche IIR pass with coefficients
-// computed once and shared across rows.
+// (channel, pixel) row of a 3-D batch. pole_zero/baseline/scale each arrive as a float32
+// array of length 1 (one value applied to every row) or n_ch*n_pix (a distinct
+// per-(channel, pixel) value); the Python wrapper produces the length-1 form for scalar
+// inputs, so the common scalar call does not allocate a full per-row array. A length-1
+// array is read with row stride 0. smoothing_fwhm > 0 enables the Deriche IIR pass with
+// coefficients computed once and shared across rows.
 nb::ndarray<nb::numpy, float>
 preprocess(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms, int upsampling,
            nb::ndarray<const float, nb::ndim<1>, nb::c_contig> pole_zero,
            double smoothing_fwhm,
            nb::ndarray<const float, nb::ndim<1>, nb::c_contig> baseline,
            nb::ndarray<const float, nb::ndim<1>, nb::c_contig> scale) {
+    // upsampling < 1 would divide by upsampling^2 == 0 and read output[-1] in
+    // detail::upsample_waveform (undefined). Guard here, at the Python boundary, so no
+    // _core.preprocess caller reaches the kernel with it.
+    if (upsampling < 1)
+        throw std::invalid_argument("upsampling must be >= 1");
     const int n_ch = static_cast<int>(waveforms.shape(0));
     const int n_pix = static_cast<int>(waveforms.shape(1));
     const int n_samples = static_cast<int>(waveforms.shape(2));
     const std::size_t n_rows = static_cast<std::size_t>(n_ch) * n_pix;
-    if (pole_zero.shape(0) != n_rows || baseline.shape(0) != n_rows ||
-        scale.shape(0) != n_rows)
+    // Each per-row array is length 1 (broadcast to all rows, row stride 0) or n_rows (one
+    // value per row, stride 1).
+    auto row_stride = [n_rows](std::size_t len) -> std::size_t {
+        if (len == 1)
+            return 0;
+        if (len == n_rows)
+            return 1;
         throw std::invalid_argument(
-            "pole_zero, baseline and scale must each have length n_channels*n_pix");
+            "pole_zero, baseline and scale must each have length 1 or n_channels*n_pix");
+    };
+    const std::size_t pz_stride = row_stride(pole_zero.shape(0));
+    const std::size_t bl_stride = row_stride(baseline.shape(0));
+    const std::size_t scl_stride = row_stride(scale.shape(0));
 
     // smoothing_fwhm == 0 disables smoothing; calculate_smoothing_coefficients divides by
     // fwhm/2.1, so it must not be called with a non-positive width.
@@ -218,8 +190,9 @@ preprocess(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms, int up
     const float *bl = baseline.data();
     const float *scl = scale.data();
     for (std::size_t r = 0; r < n_rows; r++)
-        phepex::preprocess_waveform(src + r * n_samples, n_samples, upsampling, pz[r], sm,
-                                    bl[r], scl[r], out + r * out_row, scratch_ptr);
+        phepex::preprocess_waveform(src + r * n_samples, n_samples, upsampling,
+                                    pz[r * pz_stride], sm, bl[r * bl_stride],
+                                    scl[r * scl_stride], out + r * out_row, scratch_ptr);
 
     std::size_t shape[3] = {static_cast<std::size_t>(n_ch),
                             static_cast<std::size_t>(n_pix), out_row};
@@ -228,6 +201,10 @@ preprocess(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms, int up
 
 std::pair<int, int> preprocess_valid_range(int upsampling, double pole_zero,
                                            double smoothing_fwhm, int n_samples) {
+    // Reject upsampling < 1 rather than let phepex::preprocess_valid_range clamp it to 1
+    // and return a range for an upsampling that preprocess() itself refuses.
+    if (upsampling < 1)
+        throw std::invalid_argument("upsampling must be >= 1");
     phepex::SmoothingCoefficients sc;
     const phepex::SmoothingCoefficients *sm = nullptr;
     if (smoothing_fwhm > 0.0) {
@@ -264,21 +241,14 @@ generate_waveforms(nb::ndarray<const double, nb::ndim<2>, nb::c_contig> charge,
 
 NB_MODULE(_core, m) {
     m.doc() = "phepex C++ kernels (photo-electron pulse extraction).";
-    m.def("deconvolve_upsample", &deconvolve_upsample, nb::arg("waveforms"),
-          nb::arg("upsampling"), nb::arg("pole_zero"), nb::arg("baseline") = 0.0,
-          nb::arg("scale") = 1.0,
-          "Pole-zero deconvolution + upsampling; float32 "
-          "(n_ch,n_pix,n_samples*upsampling).");
-    m.def("deconvolve_valid_range", &deconvolve_valid_range, nb::arg("upsampling"),
-          nb::arg("n_samples"), nb::arg("pole_zero"),
-          "Trustworthy (non-edge) output-sample range (lo, hi) of deconvolve_upsample.");
-    m.def(
-        "preprocess", &preprocess, nb::arg("waveforms"), nb::arg("upsampling"),
-        nb::arg("pole_zero"), nb::arg("smoothing_fwhm"), nb::arg("baseline"),
-        nb::arg("scale"),
-        "Upsample + pole-zero deconvolution + optional Deriche smoothing per (channel, "
-        "pixel); float32 (n_ch,n_pix,n_samples*upsampling). pole_zero/baseline/scale are "
-        "(n_ch*n_pix,) arrays; smoothing_fwhm <= 0 disables smoothing.");
+    m.def("preprocess", &preprocess, nb::arg("waveforms"), nb::arg("upsampling"),
+          nb::arg("pole_zero"), nb::arg("smoothing_fwhm"), nb::arg("baseline"),
+          nb::arg("scale"),
+          "Upsample + pole-zero deconvolution + optional Deriche smoothing per (channel, "
+          "pixel); float32 (n_ch,n_pix,n_samples*upsampling). upsampling must be >= 1; "
+          "pole_zero/baseline/scale are length-1 or (n_ch*n_pix,) arrays; smoothing_fwhm "
+          "<= "
+          "0 disables smoothing.");
     m.def("preprocess_valid_range", &preprocess_valid_range, nb::arg("upsampling"),
           nb::arg("pole_zero"), nb::arg("smoothing_fwhm"), nb::arg("n_samples"),
           "Trustworthy (non-edge) output-sample range (lo, hi) of preprocess (DVR "
