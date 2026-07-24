@@ -42,6 +42,7 @@ endif()
 option(PHEPEX_BUILD_PYTHON "Build the nanobind Python module (phepex._core)" ${_phepex_python_default})
 option(PHEPEX_BUILD_EXAMPLES "Build the C++ example" OFF)
 option(PHEPEX_BUILD_TESTS "Build the standalone C++ unit tests (vendored Catch2)" OFF)
+option(PHEPEX_BUILD_BENCHMARKS "Build the C++ per-kernel micro-benchmark" OFF)
 
 # libphepex: built as both shared (libphepex.so) and static (libphepex.a)
 set(PHEPEX_SOURCES
@@ -102,6 +103,16 @@ if(PHEPEX_BUILD_TESTS)
   target_include_directories(phepex_tests PRIVATE third_party/catch2)
   target_link_libraries(phepex_tests PRIVATE phepex::phepex)
   add_test(NAME phepex_tests COMMAND phepex_tests)
+endif()
+
+# C++ per-kernel micro-benchmark (optional). Links the shared library and is built at -O3
+# regardless of CMAKE_BUILD_TYPE so its absolute timings are meaningful. The camera
+# configuration it exercises is read at run time from benchmarks/flashcam-config.txt
+# (default path relative to the repository root).
+if(PHEPEX_BUILD_BENCHMARKS)
+  add_executable(phepex-microbench benchmarks/cpp/microbench.cpp)
+  target_link_libraries(phepex-microbench PRIVATE phepex::phepex)
+  target_compile_options(phepex-microbench PRIVATE -O3)
 endif()
 
 # Install the C++ library (headers, targets, CMake package config, pkg-config)
