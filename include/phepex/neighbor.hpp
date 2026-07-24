@@ -17,6 +17,15 @@ namespace phepex {
 /// First-max tie-break, float32 accumulation, no normalisation. Passing sample_lo ==
 /// sample_hi == 0 means the full trace.
 ///
+/// By default (compile-time option PHEPEX_NEIGHBOR_PAIRWISE_SUM=1) neighbours are
+/// accumulated in pairs to halve the read-modify-write traffic on the accumulator (the
+/// micro-benchmark bottleneck), and for local_weight == 0 the accumulator is seeded from
+/// the first neighbour pair rather than a zeroed self*0 pass. Both change the float32
+/// summation order, so the peak index is not bit-identical to a strictly sequential sum;
+/// it differs only where two samples are within ~1 ULP of the maximum. Building with
+/// PHEPEX_NEIGHBOR_PAIRWISE_SUM=0 selects the sequential sum (slower on the benchmarked
+/// aarch64 core, but bit-identical to a left-to-right accumulation in CSR order).
+///
 /// Neighbours are given as a CSR adjacency (compressed sparse row: row pointers +
 /// column indices): pixel p's neighbours are indices[indptr[p] .. indptr[p+1]).
 ///

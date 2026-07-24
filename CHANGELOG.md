@@ -10,6 +10,18 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
 ## [Unreleased]
 
 ### Changed
+- `neighbor_peak_indices` accumulates neighbour waveforms in pairs (`buf[j] += a[j] +
+  b[j]`) instead of one at a time, and for `local_weight == 0` seeds the accumulator from
+  the first neighbour pair rather than a zeroed `self*0` pass. The per-kernel
+  micro-benchmark attributes the kernel's cost to the read-modify-write traffic on the
+  accumulator, not the neighbour reads (which are L1/L2-resident); pairing halves that
+  traffic and skipping the self pass removes one full sweep over the trace. On the
+  benchmarked aarch64 core (1764-pixel FlashCam, upsampling 4, 88 samples) this is ~22%
+  faster for `local_weight == 0` (216 -> 169 us/event) and ~17% for `local_weight != 0`
+  (215 -> 182 us/event). The strategy is selectable at compile time via the CMake option
+  `PHEPEX_NEIGHBOR_PAIRWISE_SUM` (default `ON`); building with
+  `-DPHEPEX_NEIGHBOR_PAIRWISE_SUM=OFF`, or compiling `neighbor.cpp` with the preprocessor
+  macro `PHEPEX_NEIGHBOR_PAIRWISE_SUM=0`, restores the sequential sum.
 - Deconvolution is unified with preprocessing; the separate deconvolution entry points are
   removed. Pole-zero deconvolution + upsampling is exactly preprocessing without the
   optional Deriche pass, so it is now `preprocess_waveform` / `preprocess_valid_range` with

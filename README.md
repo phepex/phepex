@@ -52,6 +52,20 @@ g++ -std=c++17 app.cpp $(pkg-config --cflags --libs phepex)
 A runnable example is in `examples/example.cpp` (build with `-DPHEPEX_BUILD_EXAMPLES=ON`).
 <!-- quickstart-cpp:end -->
 
+## Build options
+
+CMake cache options, passed as `-D<name>=<value>`. Defaults are chosen for a plain library
+build; the Python wheel (built via scikit-build-core, which defines `SKBUILD`) enables the
+bindings automatically.
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `PHEPEX_BUILD_PYTHON` | `ON` under scikit-build-core, else `OFF` | Build the nanobind Python module `phepex._core`. |
+| `PHEPEX_BUILD_EXAMPLES` | `OFF` | Build the C++ example (`examples/example.cpp`). |
+| `PHEPEX_BUILD_TESTS` | `OFF` | Build the standalone C++ unit tests (vendored Catch2). |
+| `PHEPEX_BUILD_BENCHMARKS` | `OFF` | Build the C++ per-kernel micro-benchmark. |
+| `PHEPEX_NEIGHBOR_PAIRWISE_SUM` | `ON` | Accumulate the neighbour sum in `neighbor_peak_indices` pairwise (up to 25% faster depending on target). `OFF` selects the sequential sum. See the note in `include/phepex/neighbor.hpp`. |
+
 ## Python bindings
 
 <!-- quickstart-python:start -->
