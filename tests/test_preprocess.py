@@ -127,6 +127,50 @@ def test_per_pixel_matches_per_row_scalar_calls():
         assert np.array_equal(batched[:, p : p + 1], row)
 
 
+@pytest.mark.parametrize(
+    # Row counts (n_ch * n_pix) chosen against the default tile width
+    # (PHEPEX_PREPROCESS_TILE_WIDTH == 24) to exercise the path split; the equivalence
+    # assertion below holds for any width, so these still pass under a non-default build.
+    "n_ch, n_pix",
+    [
+        (1, 3),  # fewer rows than a tile: pure scalar-remainder path (0 tiles)
+        (1, 24),  # 24 rows = exactly one tile, no remainder (n_rows % 24 == 0 boundary)
+        (2, 19),  # 38 rows = one full tile (24) + a 14-row remainder
+    ],
+)
+@pytest.mark.parametrize(
+    "up, fwhm",
+    [
+        (4, 3.0),  # upsampling + smoothing: tiled, deconvolve/upsample + Deriche IIR
+        (4, 0.0),  # upsampling, no smoothing: tiled (running sums are latency-bound)
+        (1, 3.0),  # no upsampling + smoothing: tiled (Deriche IIR)
+        (1, 0.0),  # no upsampling, no smoothing: per-row scalar path (stencil)
+    ],
+)
+def test_batched_matches_per_row_scalar_calls(n_ch, n_pix, up, fwhm):
+    """The batched kernel must be bit-identical to scalar preprocess calls on each pixel
+    across all four gate branches (tile when upsampling > 1 and/or smoothing, else
+    scalar), including the remainder rows when n_ch*n_pix is not a multiple of the tile
+    width."""
+    wf = _wf(n_ch=n_ch, n_pix=n_pix, n_samples=20, seed=11)
+    rng = np.random.default_rng(12)
+    pz = rng.uniform(0.0, 0.95, n_pix).astype(np.float32)
+    bl = rng.uniform(-2.0, 8.0, n_pix).astype(np.float32)
+    sc = rng.uniform(0.3, 1.5, n_pix).astype(np.float32)
+
+    batched = preprocess(wf, up, pz, smoothing_fwhm=fwhm, baseline=bl, scale=sc)
+    for p in range(n_pix):
+        row = preprocess(
+            wf[:, p : p + 1],
+            up,
+            float(pz[p]),
+            smoothing_fwhm=fwhm,
+            baseline=float(bl[p]),
+            scale=float(sc[p]),
+        )
+        assert np.array_equal(batched[:, p : p + 1], row)
+
+
 def test_deconvolve_accepts_per_pixel_pole_zero():
     """deconvolve takes a per-pixel pole_zero (like preprocess).
 

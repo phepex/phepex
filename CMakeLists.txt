@@ -51,6 +51,11 @@ option(PHEPEX_BUILD_BENCHMARKS "Build the C++ per-kernel micro-benchmark" OFF)
 option(PHEPEX_NEIGHBOR_PAIRWISE_SUM
        "Use pairwise neighbour-sum accumulation in neighbor_peak_indices" ON)
 
+# Row-tile width for the batched preprocess_waveforms path: the number of waveforms processed
+# per tile, one per SIMD lane.
+set(PHEPEX_PREPROCESS_TILE_WIDTH 24 CACHE STRING
+    "SIMD-lane tile width for the batched preprocess_waveforms path")
+
 # libphepex: built as both shared (libphepex.so) and static (libphepex.a)
 set(PHEPEX_SOURCES
     src/preprocess.cpp
@@ -72,7 +77,8 @@ foreach(tgt phepex phepex_static)
   target_compile_features(${tgt} PUBLIC cxx_std_17)
   target_compile_options(${tgt} PRIVATE -O3)
   target_compile_definitions(${tgt} PRIVATE
-      PHEPEX_NEIGHBOR_PAIRWISE_SUM=$<IF:$<BOOL:${PHEPEX_NEIGHBOR_PAIRWISE_SUM}>,1,0>)
+      PHEPEX_NEIGHBOR_PAIRWISE_SUM=$<IF:$<BOOL:${PHEPEX_NEIGHBOR_PAIRWISE_SUM}>,1,0>
+      PHEPEX_PREPROCESS_TILE_WIDTH=${PHEPEX_PREPROCESS_TILE_WIDTH})
   set_target_properties(${tgt} PROPERTIES
       OUTPUT_NAME phepex
       POSITION_INDEPENDENT_CODE ON)

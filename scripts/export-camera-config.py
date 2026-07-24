@@ -60,8 +60,8 @@ def export(camera: str, n_samples: int, out_path: str) -> None:
     # scipy CSR of the boolean neighbour matrix: indptr[p]..indptr[p+1] index the columns
     # (neighbour pixel ids) of row p. int32 matches the kernel's CSR pointer type.
     nm = geom.neighbor_matrix_sparse
-    indptr = np.ascontiguousarray(nm.indptr, dtype=np.int64)
-    indices = np.ascontiguousarray(nm.indices, dtype=np.int64)
+    indptr = np.ascontiguousarray(nm.indptr, dtype=np.int32)
+    indices = np.ascontiguousarray(nm.indices, dtype=np.int32)
     assert indptr.shape == (n_pixels + 1,)
     nnz = int(indptr[-1])
     assert indices.shape == (nnz,)

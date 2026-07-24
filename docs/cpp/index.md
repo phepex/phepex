@@ -9,7 +9,10 @@ rendered from its own header documentation.
 Declared in `<phepex/preprocess.hpp>`. Single-waveform upsampling + pole-zero deconvolution
 with optional Deriche (1992) Gaussian smoothing, plus its DVR-convention valid range.
 Pole-zero deconvolution without smoothing is just `preprocess_waveform` with
-`smoothing == nullptr`.
+`smoothing == nullptr`. `preprocess_waveforms` applies the same operation to a batch of rows
+in one call; it tiles the rows (one row per SIMD lane) to fill the loop-carried recurrence
+whenever one is present (the upsampling running sums and/or the Deriche IIR), and its output
+is bit-identical to the per-row form.
 
 ```{doxygenstruct} phepex::SampleRange
 :members:
@@ -26,6 +29,12 @@ Pole-zero deconvolution without smoothing is just `preprocess_waveform` with
 ```
 
 ```{doxygenfunction} phepex::preprocess_waveform(const float *src, int n_samples, int upsampling, float pole_zero, const SmoothingCoefficients *smoothing, float offset, float scale, float *out, float *scratch = nullptr);
+```
+
+```{doxygenfunction} phepex::preprocess_waveforms
+```
+
+```{doxygenfunction} phepex::preprocess_waveforms_scratch_size
 ```
 
 ```{doxygenfunction} phepex::preprocess_valid_range
