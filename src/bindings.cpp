@@ -128,13 +128,15 @@ adaptive_centroid(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms,
     return nb::ndarray<nb::numpy, float>(out, 2, shape, make_deleter(out));
 }
 
-// preprocess_waveform is a single-waveform (1-D) kernel; this wrapper applies it to every
-// (channel, pixel) row of a 3-D batch. pole_zero/baseline/scale each arrive as a float32
-// array of length 1 (one value applied to every row) or n_ch*n_pix (a distinct
-// per-(channel, pixel) value); the Python wrapper produces the length-1 form for scalar
-// inputs, so the common scalar call does not allocate a full per-row array. A length-1
-// array is read with row stride 0. smoothing_fwhm > 0 enables the Deriche IIR pass with
-// coefficients computed once and shared across rows.
+// Preprocesses every (channel, pixel) row of a 3-D batch by delegating to
+// phepex::preprocess_waveforms, which handles the n_ch*n_pix rows in one call (tiling
+// them onto SIMD lanes where a latency-bound recurrence is present).
+// pole_zero/baseline/scale each arrive as a float32 array of length 1 (one value applied
+// to every row) or n_ch*n_pix (a distinct per-(channel, pixel) value); the Python wrapper
+// produces the length-1 form for scalar inputs, so the common scalar call does not
+// allocate a full per-row array. A length-1 array is read with row stride 0.
+// smoothing_fwhm > 0 enables the Deriche IIR pass with coefficients computed once and
+// shared across rows.
 nb::ndarray<nb::numpy, float>
 preprocess(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms, int upsampling,
            nb::ndarray<const float, nb::ndim<1>, nb::c_contig> pole_zero,
@@ -176,23 +178,14 @@ preprocess(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms, int up
     const std::size_t out_row = static_cast<std::size_t>(n_samples) * upsampling;
     float *out = new float[n_rows * out_row];
 
-    // The scratch buffer is only read/written within a single preprocess_waveform call
-    // (smoothing path), so one buffer can be reused across the sequential row loop.
-    std::vector<float> scratch;
-    float *scratch_ptr = nullptr;
-    if (sm != nullptr) {
-        scratch.resize(out_row);
-        scratch_ptr = scratch.data();
-    }
-
-    const float *src = waveforms.data();
-    const float *pz = pole_zero.data();
-    const float *bl = baseline.data();
-    const float *scl = scale.data();
-    for (std::size_t r = 0; r < n_rows; r++)
-        phepex::preprocess_waveform(src + r * n_samples, n_samples, upsampling,
-                                    pz[r * pz_stride], sm, bl[r * bl_stride],
-                                    scl[r * scl_stride], out + r * out_row, scratch_ptr);
+    // preprocess_waveforms tiles the batch (one row per SIMD lane) where a latency-bound
+    // recurrence is present -- upsampling > 1 and/or smoothing -- and manages its own
+    // tile buffers; strides are 0 (broadcast scalar) or 1 (per-row), as resolved above.
+    phepex::preprocess_waveforms(
+        waveforms.data(), static_cast<int>(n_rows), n_samples, upsampling,
+        pole_zero.data(), static_cast<std::ptrdiff_t>(pz_stride), sm, baseline.data(),
+        static_cast<std::ptrdiff_t>(bl_stride), scale.data(),
+        static_cast<std::ptrdiff_t>(scl_stride), out);
 
     std::size_t shape[3] = {static_cast<std::size_t>(n_ch),
                             static_cast<std::size_t>(n_pix), out_row};

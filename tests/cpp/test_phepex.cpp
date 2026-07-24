@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <numeric>
 #include <stdexcept>
 #include <random>
@@ -607,5 +608,53 @@ TEST_CASE("preprocess_waveform: external scratch buffer matches internal allocat
     phepex::preprocess_waveform(src.data(), n, up, 0.9f, &sc, 2.0f, 0.5f, ref.data());
     phepex::preprocess_waveform(src.data(), n, up, 0.9f, &sc, 2.0f, 0.5f, got.data(),
                                 scratch.data());
+    REQUIRE(std::memcmp(got.data(), ref.data(), got.size() * sizeof(float)) == 0);
+}
+
+TEST_CASE("preprocess_waveforms: external scratch buffer matches internal allocation",
+          "[preprocess]") {
+    // 40 rows spans more than one internal tile plus a remainder for any tile width.
+    const int n_rows = 40, n = 24;
+    std::mt19937 rng(7);
+    std::uniform_real_distribution<float> d(0.0f, 4095.0f);
+    std::vector<float> src(static_cast<std::size_t>(n_rows) * n);
+    for (auto &v : src)
+        v = d(rng);
+
+    const float pz = 0.9f, offset = 2.0f, scale = 0.5f;
+    const auto sc = phepex::calculate_smoothing_coefficients(4.0);
+
+    // Each tiled branch: upsampling+smoothing, upsampling-only, smoothing-only. Broadcast
+    // (stride 0) coefficients keep the focus on scratch vs internal-allocation
+    // equivalence.
+    struct Cfg {
+        int up;
+        const phepex::SmoothingCoefficients *sm;
+    };
+    for (const Cfg cfg : {Cfg{4, &sc}, Cfg{4, nullptr}, Cfg{1, &sc}}) {
+        const std::size_t n_up = static_cast<std::size_t>(cfg.up) * n;
+        const std::size_t need =
+            phepex::preprocess_waveforms_scratch_size(n, cfg.up, cfg.sm);
+        REQUIRE(need > 0);  // every tiled branch needs a scratch buffer
+        std::vector<float> ref(static_cast<std::size_t>(n_rows) * n_up);
+        std::vector<float> got(static_cast<std::size_t>(n_rows) * n_up);
+        std::vector<float> scratch(need);
+        phepex::preprocess_waveforms(src.data(), n_rows, n, cfg.up, &pz, 0, cfg.sm,
+                                     &offset, 0, &scale, 0, ref.data());
+        phepex::preprocess_waveforms(src.data(), n_rows, n, cfg.up, &pz, 0, cfg.sm,
+                                     &offset, 0, &scale, 0, got.data(), scratch.data());
+        REQUIRE(std::memcmp(got.data(), ref.data(), got.size() * sizeof(float)) == 0);
+    }
+
+    // Scalar path (upsampling == 1, no smoothing): no tiles, so the size query is 0 and a
+    // supplied scratch is ignored -- still bit-identical to the internal-allocation call.
+    REQUIRE(phepex::preprocess_waveforms_scratch_size(n, 1, nullptr) == 0);
+    std::vector<float> ref(static_cast<std::size_t>(n_rows) * n);
+    std::vector<float> got(static_cast<std::size_t>(n_rows) * n);
+    std::vector<float> unused_scratch(8);
+    phepex::preprocess_waveforms(src.data(), n_rows, n, 1, &pz, 0, nullptr, &offset, 0,
+                                 &scale, 0, ref.data());
+    phepex::preprocess_waveforms(src.data(), n_rows, n, 1, &pz, 0, nullptr, &offset, 0,
+                                 &scale, 0, got.data(), unused_scratch.data());
     REQUIRE(std::memcmp(got.data(), ref.data(), got.size() * sizeof(float)) == 0);
 }

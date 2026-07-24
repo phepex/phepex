@@ -65,6 +65,30 @@ bindings automatically.
 | `PHEPEX_BUILD_TESTS` | `OFF` | Build the standalone C++ unit tests (vendored Catch2). |
 | `PHEPEX_BUILD_BENCHMARKS` | `OFF` | Build the C++ per-kernel micro-benchmark. |
 | `PHEPEX_NEIGHBOR_PAIRWISE_SUM` | `ON` | Accumulate the neighbour sum in `neighbor_peak_indices` pairwise (up to 25% faster depending on target). `OFF` selects the sequential sum. See the note in `include/phepex/neighbor.hpp`. |
+| `PHEPEX_PREPROCESS_TILE_WIDTH` | `24` | Number of waveforms mapped onto SIMD lanes per tile in the batched `preprocess_waveforms` path. Bit-identical for any value `>= 1`; performance only. See the tuning notes below. |
+
+### Tuning `PHEPEX_PREPROCESS_TILE_WIDTH`
+
+`preprocess_waveforms` processes waveforms in tiles of this width, one waveform per SIMD lane,
+to fill the loop-carried recurrences (the upsampling running sums and the Deriche smoothing
+IIR) with independent rows — these are latency-bound, so per-row throughput rises as more
+independent rows are in flight. The width affects only the tiled paths (`upsampling > 1` and/or
+smoothing enabled); the `upsampling == 1`, no-smoothing case runs per-row scalar and is
+unaffected.
+
+Recommendations:
+
+- Larger widths expose more independent rows to the out-of-order window but grow the
+  working set: about `3 * width * upsampling * n_samples` floats are live per tile. Keep
+  that inside L1; above it the tiles spill and the gain reverses.
+- Build the micro-benchmark (`-DPHEPEX_BUILD_BENCHMARKS=ON
+  -DCMAKE_CXX_FLAGS="-march=native" -DPHEPEX_PREPROCESS_TILE_WIDTH=K`) at a few widths and
+  compare the `preprocess up/pz(/smoothing) batch` rows
+- `24` (the default) works best for Apple Silicon (NEON) and Zen 4 architectures, even though
+  the latter supports AVX-512 (float SIMD width of 16).
+
+To obtain an optimised Python wheel, pass it through scikit-build-core, e.g.
+`CMAKE_CXX_FLAGS="-march=native" pip install . -C cmake.define.PHEPEX_PREPROCESS_TILE_WIDTH=K`.
 
 ## Python bindings
 

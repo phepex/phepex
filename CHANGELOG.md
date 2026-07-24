@@ -10,13 +10,24 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
 ## [Unreleased]
 
 ### Changed
+- The `phepex.preprocess` binding evaluates the whole `(n_channels, n_pix, n_samples)` batch
+  through the new `preprocess_waveforms` entry point in one call, instead of a Python-side loop
+  over per-row `preprocess_waveform` calls. With smoothing enabled the rows are tiled 24 at a
+  time and the Deriche IIR is evaluated one row per SIMD lane; the recurrence is loop-carried
+  and latency-bound, so filling it with independent rows raises throughput. On the FlashCam
+  micro-benchmark (1764 pixels, upsampling 4, 22 samples, aarch64/NEON) the upsampling +
+  pole-zero + smoothing sweep is ~5x faster (1125 -> 222 us/event; `preprocess up/pz/smoothing`
+  vs `preprocess up/pz/smoothing batch`). Results are bit-for-bit unchanged: the tiled path uses
+  double-precision smoothing accumulators as before, and the no-smoothing path is routed to the
+  same scalar kernel. The gain is from breaking the latency bound (independent rows in the
+  reorder window), not SIMD width alone.
 - `neighbor_peak_indices` accumulates neighbour waveforms in pairs (`buf[j] += a[j] +
   b[j]`) instead of one at a time, and for `local_weight == 0` seeds the accumulator from
   the first neighbour pair rather than a zeroed `self*0` pass. The per-kernel
   micro-benchmark attributes the kernel's cost to the read-modify-write traffic on the
   accumulator, not the neighbour reads (which are L1/L2-resident); pairing halves that
   traffic and skipping the self pass removes one full sweep over the trace. On the
-  benchmarked aarch64 core (1764-pixel FlashCam, upsampling 4, 88 samples) this is ~22%
+  benchmarked aarch64 core (1764-pixel FlashCam, upsampling 4, 22 samples) this is ~22%
   faster for `local_weight == 0` (216 -> 169 us/event) and ~17% for `local_weight != 0`
   (215 -> 182 us/event). The strategy is selectable at compile time via the CMake option
   `PHEPEX_NEIGHBOR_PAIRWISE_SUM` (default `ON`); building with
@@ -59,6 +70,26 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
   published.
 
 ### Added
+- `phepex::preprocess_waveforms` (C++, `<phepex/preprocess.hpp>`): batched form of
+  `preprocess_waveform` that applies the kernel to `n_rows` consecutive waveforms in one call.
+  `pole_zero`, `offset` and `scale` are read per row as `array[row * stride]` (stride `0`
+  broadcasts one value to every row, `1` selects a distinct per-row value). The rows are
+  processed in fixed-width tiles (24 rows by default) held sample-major, one row per SIMD lane, whenever
+  the per-row work carries a latency-bound recurrence -- the upsampling running sums
+  (`upsampling > 1`) and/or the Deriche IIR (`smoothing != nullptr`) -- filling the recurrence
+  with independent rows. The one case without such a recurrence, `upsampling == 1` with no
+  smoothing (a pole-zero stencil that already vectorises across samples), uses the per-row
+  scalar path, where tiling would only add transpose overhead. Float input only. The result is
+  bit-identical to calling `preprocess_waveform` per row (double-precision smoothing accumulators
+  and arithmetic order are unchanged); the `n_rows % tile_width` remainder rows use
+  `preprocess_waveform` directly. The tile width (default 24) is a build-time constant set via the
+  CMake cache variable `PHEPEX_PREPROCESS_TILE_WIDTH`; it affects performance only (bit-identical
+  for any width `>= 1`) and should be tuned to the target — see the README build options. An
+  optional trailing `scratch` argument (default `nullptr`) accepts a caller-owned workspace for
+  the tile buffers, avoiding the per-call allocation when preprocessing many batches in a loop;
+  its required length is returned by the companion `preprocess_waveforms_scratch_size(n_samples,
+  upsampling, smoothing)` (0 for the non-tiled `upsampling == 1`, no-smoothing case). Passing
+  `nullptr` allocates internally, as before.
 - `phepex.preprocess` and `phepex.preprocess_valid_range` Python bindings over the C++
   `preprocess_waveform` / `preprocess_valid_range` kernels. `preprocess` is a batched wrapper
   that applies the single-waveform kernel to every `(channel, pixel)` row of a
