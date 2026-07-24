@@ -44,6 +44,13 @@ option(PHEPEX_BUILD_EXAMPLES "Build the C++ example" OFF)
 option(PHEPEX_BUILD_TESTS "Build the standalone C++ unit tests (vendored Catch2)" OFF)
 option(PHEPEX_BUILD_BENCHMARKS "Build the C++ per-kernel micro-benchmark" OFF)
 
+# neighbor_peak_indices accumulates neighbour waveforms in pairs by default, which halves
+# the accumulator read-modify-write traffic (~17-22% faster on the benchmarked aarch64
+# core). The extra branch and altered vectorisation may not pay off on every target, so
+# the strategy is selectable; OFF falls back to the sequential sum.
+option(PHEPEX_NEIGHBOR_PAIRWISE_SUM
+       "Use pairwise neighbour-sum accumulation in neighbor_peak_indices" ON)
+
 # libphepex: built as both shared (libphepex.so) and static (libphepex.a)
 set(PHEPEX_SOURCES
     src/preprocess.cpp
@@ -64,6 +71,8 @@ foreach(tgt phepex phepex_static)
       $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
   target_compile_features(${tgt} PUBLIC cxx_std_17)
   target_compile_options(${tgt} PRIVATE -O3)
+  target_compile_definitions(${tgt} PRIVATE
+      PHEPEX_NEIGHBOR_PAIRWISE_SUM=$<IF:$<BOOL:${PHEPEX_NEIGHBOR_PAIRWISE_SUM}>,1,0>)
   set_target_properties(${tgt} PROPERTIES
       OUTPUT_NAME phepex
       POSITION_INDEPENDENT_CODE ON)
