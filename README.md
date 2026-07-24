@@ -76,6 +76,9 @@ src/              libphepex sources (+ bindings.cpp for phepex._core)
 python/phepex/    Python package: kernels.py (numpy wrappers), extractor.py (ctapipe)
 examples/         C++ usage example
 benchmarks/       comparative benchmark (stock ctapipe vs FastFlashCamExtractor)
+benchmarks/cpp/   standalone C++ per-kernel micro-benchmark (no Python/ctapipe)
+benchmarks/flashcam-config.txt  frozen FlashCam configuration for the micro-benchmark
+scripts/          maintenance scripts (e.g. export-camera-config.py)
 tests/            Python equivalence / bit-exactness tests (pytest)
 tests/cpp/        standalone C++ unit tests (Catch2, no Python/ctapipe)
 third_party/catch2/  vendored Catch2 v3 (amalgamated) for the C++ tests
@@ -93,13 +96,36 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure     # or: ./build/phepex_tests
 ```
 
+## C++ micro-benchmark (no Python/ctapipe)
+
+`benchmarks/cpp/microbench.cpp` times each `phepex::` kernel in isolation on a realistic
+camera configuration, so a regression can be attributed to a specific kernel. It links only
+`libphepex` and reads the configuration at run time from a text file, so it needs neither
+Python nor ctapipe. One "op" is one full-camera sweep (the per-event cost).
+
+```bash
+cmake -S . -B build -DPHEPEX_BUILD_BENCHMARKS=ON -DCMAKE_CXX_FLAGS="-march=native"
+cmake --build build -j
+./build/phepex-microbench                        # default config, 200 reps
+./build/phepex-microbench --config PATH --reps N
+```
+
+The bundled `benchmarks/flashcam-config.txt` holds the FlashCam configuration (1764 pixels,
+neighbour adjacency in CSR form, reference pulse, readout scalars) exported from ctapipe.
+Regenerate it, or export another camera, with:
+
+```bash
+python3 scripts/export-camera-config.py --camera FlashCam \
+    --out benchmarks/flashcam-config.txt
+```
+
 ## Benchmark
 
 <!-- benchmark:start -->
-`benchmarks/benchmark_fast_extractor.py` compares stock ctapipe `FlashCamExtractor` against `phepex.extractor.FastFlashCamExtractor` on synthetic gamma-like FlashCam-MST events (needs the `bench` extra: `pip install .[bench]`):
+`benchmarks/benchmark-fast-extractor.py` compares stock ctapipe `FlashCamExtractor` against `phepex.extractor.FastFlashCamExtractor` on synthetic gamma-like FlashCam-MST events (needs the `bench` extra: `pip install .[bench]`):
 
 ```bash
-python3 benchmarks/benchmark_fast_extractor.py --events 5000
+python3 benchmarks/benchmark-fast-extractor.py --events 5000
 ```
 
 Typical result: **~5× faster** end-to-end (leading-edge timing on), with bit-exact / ~1e-7 agreement on signal pixels. Tests: `python3 -m pytest tests/ -q`.

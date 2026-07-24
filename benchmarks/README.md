@@ -15,14 +15,14 @@ Requires the `bench` extra (ctapipe): `pip install .[bench]`.
   gamma-like charge/time images come from ctapipe's toy models (`SkewedGaussian` +
   `obtain_time_image`); the perf-critical waveform synthesis (pulse convolution + NSB) is
   done by the C++ `phepex.generate_waveforms`.
-- `benchmark_fast_extractor.py` — the comparison itself: the isolated deconvolution step
+- `benchmark-fast-extractor.py` — the comparison itself: the isolated deconvolution step
   (ctapipe/scipy vs C++) and the full extractor (stock vs Fast), for leading-edge timing
   on and off.
 
 ## Run
 
 ```bash
-python3 benchmarks/benchmark_fast_extractor.py --events 5000
+python3 benchmarks/benchmark-fast-extractor.py --events 5000
 ```
 
 Typical result: **~5× faster** end-to-end with leading-edge timing on (~2700 →
