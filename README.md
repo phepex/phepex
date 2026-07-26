@@ -101,7 +101,12 @@ ctest --test-dir build --output-on-failure     # or: ./build/phepex_tests
 `benchmarks/cpp/microbench.cpp` times each `phepex::` kernel in isolation on a realistic
 camera configuration, so a regression can be attributed to a specific kernel. It links only
 `libphepex` and reads the configuration at run time from a text file, so it needs neither
-Python nor ctapipe. One "op" is one full-camera sweep (the per-event cost).
+Python nor ctapipe. One "op" is one full-camera sweep (the per-event cost). The input is one
+artificial event — a skewed-Gaussian shower image over ~200 pixels at ~1–100 p.e. with a
+~1 ns/pixel time gradient, plus 200 MHz NSB on a 200 LSB pedestal, digitised to 12-bit ADC
+counts — because the peak-search and centroid kernels are data-dependent. The image is sized
+in pixel pitches, so a config for another camera gives a comparable event without code
+changes.
 
 ```bash
 cmake -S . -B build -DPHEPEX_BUILD_BENCHMARKS=ON -DCMAKE_CXX_FLAGS="-march=native"
@@ -111,7 +116,8 @@ cmake --build build -j
 ```
 
 The bundled `benchmarks/flashcam-config.txt` holds the FlashCam configuration (1764 pixels,
-neighbour adjacency in CSR form, reference pulse, readout scalars) exported from ctapipe.
+neighbour adjacency in CSR form, pixel coordinates and area, reference pulse, readout
+scalars) exported from ctapipe.
 Regenerate it, or export another camera, with:
 
 ```bash

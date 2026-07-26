@@ -21,22 +21,29 @@
  * The reported statistic is the minimum time over all reps (least contaminated by
  * scheduler preemption), with the median alongside as a spread indicator. One "op" is the
  * per-event cost of that kernel: one full-camera sweep (all pixels, one gain channel).
+ *
+ * The input is one artificial event rather than random samples, because the peak-search
+ * and centroid kernels are data-dependent: a skewed-Gaussian shower image
+ * (generate_shower_image) convolved with the camera's reference pulse and superposed on a
+ * Poisson NSB process (generate_waveforms), digitised to 12-bit ADC counts on a pedestal.
+ * The shower covers ~200 pixels at ~1-100 p.e. with a ~1 ns/pixel time gradient; see the
+ * constants in main().
  */
 
 #include "phepex/clip.hpp"        // for pos_soft_clip
 #include "phepex/extract.hpp"     // for extract_around_peak, adaptive_centroid
-#include "phepex/generate.hpp"    // for generate_waveforms
+#include "phepex/generate.hpp"    // for generate_waveforms, generate_shower_image
 #include "phepex/neighbor.hpp"    // for neighbor_peak_indices
 #include "phepex/preprocess.hpp"  // for preprocess_waveform, calculate_smoothing_coeff...
 
-#include <algorithm>  // for min, sort
+#include <algorithm>  // for min, max, sort
 #include <chrono>     // for steady_clock
+#include <cmath>      // for lround
 #include <cstdint>    // for uint16_t, int32_t, int64_t, uint64_t
 #include <cstring>    // for strcmp
 #include <fstream>    // for ifstream
 #include <iomanip>    // for setw, setprecision
 #include <iostream>   // for cout, cerr
-#include <random>     // for mt19937, uniform_int_distribution
 #include <sstream>    // for istringstream
 #include <stdexcept>  // for runtime_error
 #include <string>     // for string
@@ -49,27 +56,33 @@ namespace {
 // Volatile sink to keep the optimiser from eliding the benchmarked work.
 volatile double g_sink = 0;
 
-/// Camera configuration (geometry + readout scalars) consumed by the kernels, loaded from
-/// the flat text file written by scripts/export-camera-config.py. Pixel coordinates are
-/// not stored because no kernel reads them; the neighbour adjacency already encodes the
-/// connectivity.
+/// Camera configuration (geometry + readout scalars) loaded from the flat text file
+/// written by scripts/export-camera-config.py. No kernel reads the pixel geometry -- the
+/// neighbour adjacency already encodes the connectivity derived from it -- but the
+/// coordinates, area and pitch are needed to place the artificial shower image the
+/// kernels are benchmarked on, in camera-independent units.
 struct CameraConfig {
     std::string name;
     int num_pixels = 0;
     int num_samples = 0;
     double sampling_rate_ghz = 0;
     double ref_sample_width_ns = 0;
+    double pix_area_m2 = 0;
+    double pix_pitch_m = 0;
+    std::vector<double> pix_x;            // pixel centres (m), length num_pixels
+    std::vector<double> pix_y;            // pixel centres (m), length num_pixels
     std::vector<double> reference_pulse;  // n_ref reference pulse samples
     std::vector<std::int32_t> indptr;     // CSR row pointers, length num_pixels+1
     std::vector<std::int32_t> indices;    // CSR neighbour ids, length neighbor_nnz
 };
 
 /// Parse the config text file. Lines beginning with '#' (or content after a '#') are
-/// comments. Tokens are whitespace-delimited. Scalars appear as `key value`; the three
-/// arrays (`reference_pulse`, `indptr`, `indices`) appear as a bare `key` followed by a
-/// fixed number of tokens, so their length fields (`num_reference_pulse`, `num_pixels`,
-/// `neighbor_nnz`) must be read before the arrays they size. Throws std::runtime_error on
-/// a malformed file or unexpected key.
+/// comments. Tokens are whitespace-delimited. Scalars appear as `key value`; the arrays
+/// (`pix_x`, `pix_y`, `reference_pulse`, `indptr`, `indices`) appear as a bare `key`
+/// followed by a fixed number of tokens, so their length fields (`num_reference_pulse`,
+/// `num_pixels`, `neighbor_nnz`) must be read before the arrays they size. Throws
+/// std::runtime_error on a malformed file, an unexpected key, or a missing/non-positive
+/// field the benchmark's event generation requires.
 CameraConfig LoadCameraConfig(const std::string &path) {
     std::ifstream in(path);
     if (!in)
@@ -111,6 +124,17 @@ CameraConfig LoadCameraConfig(const std::string &path) {
             g.sampling_rate_ghz = std::stod(next("sampling_rate_ghz value"));
         } else if (key == "ref_sample_width_ns") {
             g.ref_sample_width_ns = std::stod(next("ref_sample_width_ns value"));
+        } else if (key == "pix_area_m2") {
+            g.pix_area_m2 = std::stod(next("pix_area_m2 value"));
+        } else if (key == "pix_pitch_m") {
+            g.pix_pitch_m = std::stod(next("pix_pitch_m value"));
+        } else if (key == "pix_x" || key == "pix_y") {
+            if (g.num_pixels <= 0)
+                throw std::runtime_error(key + " before num_pixels");
+            std::vector<double> &dst = (key == "pix_x") ? g.pix_x : g.pix_y;
+            dst.reserve(g.num_pixels);
+            for (int k = 0; k < g.num_pixels; k++)
+                dst.push_back(std::stod(next("pixel coordinate")));
         } else if (key == "num_reference_pulse") {
             num_reference_pulse = std::stoi(next("num_reference_pulse value"));
         } else if (key == "neighbor_nnz") {
@@ -144,6 +168,23 @@ CameraConfig LoadCameraConfig(const std::string &path) {
         throw std::runtime_error("indptr length != num_pixels+1");
     if (static_cast<int>(g.indices.size()) != neighbor_nnz)
         throw std::runtime_error("indices length != neighbor_nnz");
+    if (static_cast<int>(g.pix_x.size()) != g.num_pixels ||
+        static_cast<int>(g.pix_y.size()) != g.num_pixels || g.pix_area_m2 <= 0 ||
+        g.pix_pitch_m <= 0)
+        throw std::runtime_error(
+            "config lacks pix_x/pix_y/pix_area_m2/pix_pitch_m; regenerate it with "
+            "scripts/export-camera-config.py");
+    // The readout scalars below divide into sample widths, and the pulse shape is
+    // indexed unconditionally by generate_waveforms; a missing or zero value would
+    // otherwise degenerate the kernel bank (plausible but meaningless timings) or read
+    // past the end of an empty vector.
+    if (g.sampling_rate_ghz <= 0 || g.ref_sample_width_ns <= 0)
+        throw std::runtime_error(
+            "config needs sampling_rate_ghz > 0 and ref_sample_width_ns > 0");
+    if (g.reference_pulse.empty() ||
+        static_cast<int>(g.reference_pulse.size()) != num_reference_pulse)
+        throw std::runtime_error("config needs a non-empty reference_pulse of length "
+                                 "num_reference_pulse");
     return g;
 }
 
@@ -214,27 +255,72 @@ int main(int argc, char **argv) {
     const int n_ch = 1;  // FlashCam has a single gain channel
     const int num_pixels = cfg.num_pixels;
     const int num_samples = cfg.num_samples;
-    const float offset = 0.0f;
-    const float scale = 1.0f;
+    const double sample_width_ns = 1.0 / cfg.sampling_rate_ghz;
 
-    // Synthetic raw waveforms: values in a plausible 12-bit ADC range; deterministic seed
-    // so the benchmark is reproducible across runs.
-    std::mt19937 rng(42);
-    std::uniform_int_distribution<int> adc(0, 4095);
+    // Shower image: a skewed Gaussian at the camera centre. Its axes and time gradient
+    // are expressed in pixel pitches so the same numbers give a comparable event on any
+    // camera in the config format: 4 x 1.4 pitches of Gaussian sigma puts ~200 pixels
+    // above 1 p.e., and the gradient is 1 ns per pitch along the major axis. Measured on
+    // the shipped FlashCam config (pitch 5 cm): 212 pixels at 1..106 p.e., pulse times
+    // spanning 31.2..63.8 ns inside the 88 ns readout window. The per-pixel charge scale
+    // is pitch-independent: the pdf peak goes as 1/pitch^2 and the pixel area as pitch^2.
+    phepex::ShowerModel shower;
+    shower.length_m = 4.0 * cfg.pix_pitch_m;
+    shower.width_m = 1.4 * cfg.pix_pitch_m;
+    shower.psi_rad = 0.3;
+    shower.skewness = 0.3;
+    shower.intensity_pe = 4000.0;
+    shower.time_gradient_ns_per_m = 1.0 / cfg.pix_pitch_m;
+    shower.time_intercept_ns = 0.5 * num_samples * sample_width_ns;  // window centre
+    shower.time_jitter_ns = 0.5;
+    std::vector<double> q(num_pixels), tns(num_pixels);
+    phepex::generate_shower_image(shower, cfg.pix_x.data(), cfg.pix_y.data(), num_pixels,
+                                  cfg.pix_area_m2, /*seed=*/1, q.data(), tns.data());
+
+    // Raw waveforms of one artificial event: the shower image convolved with the
+    // reference pulse plus a Poisson NSB process, digitised to 12-bit ADC counts.
+    // Deterministic seeds, so the benchmark is reproducible across runs.
+    constexpr int gen_up = 10;            // oversampling factor in the simulation
+    constexpr double nsb_rate_ghz = 0.2;  // representative dark-sky NSB
+    // generate_waveforms conserves charge in readout-sample units, so the ADC gain below
+    // is the raw pulse integral in LSB per p.e. at this sampling rate; it and the
+    // pedestal are the knobs to adjust per camera.
+    constexpr double pedestal_lsb = 200.0;
+    constexpr double spe_integral_lsb = 30.0;
+    std::vector<float> amp(static_cast<size_t>(num_pixels) * num_samples);
+    phepex::generate_waveforms(
+        q.data(), tns.data(), /*n_events=*/1, num_pixels, cfg.reference_pulse.data(),
+        static_cast<int>(cfg.reference_pulse.size()), cfg.ref_sample_width_ns,
+        sample_width_ns, num_samples, gen_up, nsb_rate_ghz, /*seed=*/42, amp.data());
     std::vector<std::uint16_t> raw(static_cast<size_t>(num_pixels) * num_samples);
-    for (auto &v : raw)
-        v = static_cast<std::uint16_t>(adc(rng));
+    for (size_t i = 0; i < raw.size(); i++) {
+        const long adc = std::lround(pedestal_lsb + spe_integral_lsb * amp[i]);
+        raw[i] = static_cast<std::uint16_t>(std::min(4095L, std::max(0L, adc)));
+    }
 
+    // Baseline to subtract: the pedestal plus the DC level the NSB adds on top of it, as
+    // a pedestal calibration from NSB-illuminated events would yield.
+    const float preprocess_offset = static_cast<float>(
+        pedestal_lsb + nsb_rate_ghz * sample_width_ns * spe_integral_lsb);
+    // Scale putting the preprocessed pulse in p.e..
+    const float preprocess_scale = static_cast<float>(1.0 / spe_integral_lsb);
+
+    int signal_pixels = 0;
+    for (int p = 0; p < num_pixels; p++)
+        signal_pixels += (q[p] >= 1.0);
     std::cout << "phepex-microbench\n"
               << "  config  : " << config_filename << " (" << cfg.name << ")\n"
               << "  camera  : " << num_pixels << " pixels x " << num_samples
               << " samples, " << cfg.sampling_rate_ghz << " GHz\n"
+              << "  event   : " << shower.intensity_pe << " p.e. shower over "
+              << signal_pixels << " pixels (>= 1 p.e.), " << nsb_rate_ghz * 1000.0
+              << " MHz NSB, " << pedestal_lsb << " LSB pedestal\n"
               << "  reps    : " << reps << "\n"
               << "  (one op = one full-camera sweep = per-event kernel cost)\n\n"
               << "  kernel                          min/op   median/op    note\n"
               << "  ------                       ---------   ---------    ----\n";
 
-    // ---- preprocess_waveform: offset/scale only (upsampling 1, no pole-zero) ----
+    // preprocess_waveform: offset/scale only (upsampling 1, no pole-zero)
     {
         const int up = 1;
         std::vector<float> dst(static_cast<size_t>(num_pixels) * num_samples * up);
@@ -242,13 +328,13 @@ int main(int argc, char **argv) {
             for (int p = 0; p < num_pixels; p++)
                 phepex::preprocess_waveform(
                     raw.data() + static_cast<size_t>(p) * num_samples, num_samples, up,
-                    0.0f, nullptr, offset, scale,
+                    0.0f, nullptr, preprocess_offset, preprocess_scale,
                     dst.data() + static_cast<size_t>(p) * num_samples * up);
             return std::pair<int, double>{1, dst[num_samples * up / 2]};
         });
     }
 
-    // ---- preprocess_waveform: pole-zero deconvolution only (upsampling 1) ----
+    // preprocess_waveform: pole-zero deconvolution only (upsampling 1)
     {
         const int up = 1;
         const float pz = 0.75f;
@@ -257,13 +343,13 @@ int main(int argc, char **argv) {
             for (int p = 0; p < num_pixels; p++)
                 phepex::preprocess_waveform(
                     raw.data() + static_cast<size_t>(p) * num_samples, num_samples, up,
-                    pz, nullptr, offset, scale,
+                    pz, nullptr, preprocess_offset, preprocess_scale,
                     dst.data() + static_cast<size_t>(p) * num_samples * up);
             return std::pair<int, double>{1, dst[num_samples * up / 2]};
         });
     }
 
-    // ---- preprocess_waveform: 4x upsampling only ----
+    // preprocess_waveform: 4x upsampling only
     {
         const int up = 4;
         std::vector<float> dst(static_cast<size_t>(num_pixels) * num_samples * up);
@@ -271,13 +357,13 @@ int main(int argc, char **argv) {
             for (int p = 0; p < num_pixels; p++)
                 phepex::preprocess_waveform(
                     raw.data() + static_cast<size_t>(p) * num_samples, num_samples, up,
-                    0.0f, nullptr, offset, scale,
+                    0.0f, nullptr, preprocess_offset, preprocess_scale,
                     dst.data() + static_cast<size_t>(p) * num_samples * up);
             return std::pair<int, double>{1, dst[num_samples * up / 2]};
         });
     }
 
-    // ---- preprocess_waveform: 4x upsampling + pole-zero (FlashCam deconvolution) ----
+    // preprocess_waveform: 4x upsampling + pole-zero (FlashCam deconvolution)
     {
         const int up = 4;
         const float pz = 0.75f;
@@ -286,13 +372,13 @@ int main(int argc, char **argv) {
             for (int p = 0; p < num_pixels; p++)
                 phepex::preprocess_waveform(
                     raw.data() + static_cast<size_t>(p) * num_samples, num_samples, up,
-                    pz, nullptr, offset, scale,
+                    pz, nullptr, preprocess_offset, preprocess_scale,
                     dst.data() + static_cast<size_t>(p) * num_samples * up);
             return std::pair<int, double>{1, dst[num_samples * up / 2]};
         });
     }
 
-    // ---- preprocess_waveform: smoothing only (upsampling 1, no pole-zero) ----
+    // preprocess_waveform: smoothing only (upsampling 1, no pole-zero)
     {
         const int up = 1;
         const float pz = 0.0f;
@@ -303,15 +389,14 @@ int main(int argc, char **argv) {
             for (int p = 0; p < num_pixels; p++)
                 phepex::preprocess_waveform(
                     raw.data() + static_cast<size_t>(p) * num_samples, num_samples, up,
-                    pz, &coeffs, offset, scale,
+                    pz, &coeffs, preprocess_offset, preprocess_scale,
                     dst.data() + static_cast<size_t>(p) * num_samples * up,
                     scratch.data());
             return std::pair<int, double>{1, dst[num_samples * up / 2]};
         });
     }
 
-    // ---- preprocess_waveform: 4x upsampling + pole-zero + smoothing (all sub-kernels)
-    // ----
+    // preprocess_waveform: 4x upsampling + pole-zero + smoothing (all sub-kernels)
     {
         const int up = 4;
         const float pz = 0.75f;
@@ -322,7 +407,7 @@ int main(int argc, char **argv) {
             for (int p = 0; p < num_pixels; p++)
                 phepex::preprocess_waveform(
                     raw.data() + static_cast<size_t>(p) * num_samples, num_samples, up,
-                    pz, &coeffs, offset, scale,
+                    pz, &coeffs, preprocess_offset, preprocess_scale,
                     dst.data() + static_cast<size_t>(p) * num_samples * up,
                     scratch.data());
             return std::pair<int, double>{1, dst[num_samples * up / 2]};
@@ -338,17 +423,19 @@ int main(int argc, char **argv) {
     std::vector<float> signals(static_cast<size_t>(num_pixels) * n_up);
     for (int p = 0; p < num_pixels; p++)
         phepex::preprocess_waveform(raw.data() + static_cast<size_t>(p) * num_samples,
-                                    num_samples, up, pz, nullptr, offset, scale,
+                                    num_samples, up, pz, nullptr, preprocess_offset,
+                                    preprocess_scale,
                                     signals.data() + static_cast<size_t>(p) * n_up);
     // Trustworthy (non-edge) sample range of the deconvolution; the search/extraction
     // kernels are restricted to it, as in the extractor pipeline.
     const phepex::SampleRange vr =
         phepex::preprocess_valid_range(up, pz, nullptr, num_samples);
 
-    // ---- pos_soft_clip over the valid range ----
+    // pos_soft_clip over the valid range
     {
-        const float clip_scale =
-            12.0f;  // representative FlashCam neighbour-sum clipping level
+        // Representative FlashCam neighbour-sum clipping level, in the p.e. units the
+        // preprocess `scale` above puts the deconvolved signal in.
+        const float clip_scale = 12.0f;
         std::vector<float> clipped(static_cast<size_t>(num_pixels) * n_up);
         Run("pos_soft_clip", "positive soft clip", reps, [&] {
             phepex::pos_soft_clip(signals.data(), n_ch, num_pixels, n_up, clip_scale,
@@ -358,7 +445,7 @@ int main(int argc, char **argv) {
         });
     }
 
-    // ---- neighbor_peak_indices over the real CSR neighbour graph ----
+    // neighbor_peak_indices over the real CSR neighbour graph
     std::vector<std::uint8_t> broken(static_cast<size_t>(n_ch) * num_pixels, 0);
     std::vector<std::int64_t> peak(static_cast<size_t>(n_ch) * num_pixels);
     std::vector<std::int32_t> count(static_cast<size_t>(n_ch) * num_pixels);
@@ -376,7 +463,7 @@ int main(int argc, char **argv) {
             });
     }
 
-    // ---- extract_around_peak (window integration + weighted peak time) ----
+    // extract_around_peak (window integration + weighted peak time)
     {
         std::vector<float> charge(static_cast<size_t>(n_ch) * num_pixels);
         std::vector<float> peak_time(static_cast<size_t>(n_ch) * num_pixels);
@@ -389,7 +476,7 @@ int main(int argc, char **argv) {
         });
     }
 
-    // ---- adaptive_centroid (leading-edge weighted centroid) ----
+    // adaptive_centroid (leading-edge weighted centroid)
     {
         std::vector<float> centroids(static_cast<size_t>(n_ch) * num_pixels);
         Run("adaptive_centroid", "leading-edge centroid", reps, [&] {
@@ -400,17 +487,9 @@ int main(int argc, char **argv) {
         });
     }
 
-    // ---- generate_waveforms (synthetic pulse convolution + NSB, one event) ----
-    if (!cfg.reference_pulse.empty()) {
-        const int gen_up = 10;  // sub-sample placement, as in the Python benchmark
-        const double nsb_rate_ghz = 0.2;  // representative dark-sky NSB
-        const double sample_width_ns = 1.0 / cfg.sampling_rate_ghz;
-        std::vector<double> q(num_pixels), tns(num_pixels);
-        std::uniform_real_distribution<double> qd(0.0, 100.0);
-        for (int p = 0; p < num_pixels; p++) {
-            q[p] = qd(rng);
-            tns[p] = 0.5 * num_samples * sample_width_ns;  // near window centre
-        }
+    // generate_waveforms: re-synthesise the event that fed the kernels above, one fresh
+    // NSB realisation per rep.
+    {
         std::vector<float> out(static_cast<size_t>(num_pixels) * num_samples);
         std::uint64_t seed = 1;
         Run("generate_waveforms", "pulse convolution + NSB", reps, [&] {

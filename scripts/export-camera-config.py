@@ -18,17 +18,18 @@ upgrade or to target a different camera:
     python3 scripts/export-camera-config.py --camera FlashCam \\
         --out benchmarks/flashcam-config.txt
 
-Only the fields the kernels consume are written: pixel count, neighbour adjacency (CSR),
-the reference pulse shape (for generate_waveforms), and the sampling/readout scalars.
-Pixel coordinates are omitted because no kernel reads them; the neighbour matrix already
-encodes the connectivity derived from those coordinates.
+Only the fields the benchmark consumes are written: pixel count, neighbour adjacency
+(CSR), pixel coordinates, area and pitch, the reference pulse shape, and the
+sampling/readout scalars. No kernel reads the coordinates -- the neighbour matrix already
+encodes the connectivity derived from them -- but generate_shower_image() needs them, and
+the pitch, to place the artificial shower image the benchmark feeds to the kernels.
 
 The output format is line-oriented and whitespace-tokenised (see the parser in
 microbench.cpp). Lines beginning with '#' are comments. Scalars are `key value`; arrays
 are introduced by a `key` line on its own followed by the declared number of tokens (which
 may span multiple lines). Array lengths are fixed by a preceding count field:
-`indptr` has num_pixels+1 entries, `indices` has neighbor_nnz entries, and
-`reference_pulse` has num_reference_pulse entries.
+`indptr` has num_pixels+1 entries, `indices` has neighbor_nnz entries, `pix_x` and `pix_y`
+have num_pixels entries each, and `reference_pulse` has num_reference_pulse entries.
 """
 
 from __future__ import annotations
@@ -65,6 +66,31 @@ def export(camera: str, n_samples: int, out_path: str) -> None:
     nnz = int(indptr[-1])
     assert indices.shape == (nnz,)
 
+    pix_x = np.ascontiguousarray(geom.pix_x.to_value(u.m), dtype=np.float64)
+    pix_y = np.ascontiguousarray(geom.pix_y.to_value(u.m), dtype=np.float64)
+    # A single pixel area is exported; generate_shower_image() assumes uniform pixels.
+    pix_area = geom.pix_area.to_value(u.m**2)
+    # atol=0 so the test is purely relative: the default atol=1e-8 would dominate for
+    # areas of ~1e-3 m^2. The 1e-4 tolerance admits the same percent-level outliers that
+    # module gaps produce in the pitch (see below) while rejecting genuinely mixed pixel
+    # sizes.
+    if not np.allclose(pix_area, np.median(pix_area), rtol=1e-4, atol=0.0):
+        raise ValueError(
+            f"{camera} has non-uniform pixel areas "
+            f"({pix_area.min()} .. {pix_area.max()} m^2); the export format assumes a "
+            "single pix_area_m2"
+        )
+    pix_area_m2 = float(np.median(pix_area))
+
+    # Pixel pitch as the median centre-to-centre distance over the neighbour graph: valid
+    # for any regular layout, and insensitive to the few percent-level outliers a camera
+    # with gaps between modules shows (FlashCam: 0.050000 .. 0.050001 m).
+    deg = np.diff(indptr)
+    neighbor_dist = np.hypot(
+        pix_x[indices] - np.repeat(pix_x, deg), pix_y[indices] - np.repeat(pix_y, deg)
+    )
+    pix_pitch_m = float(np.median(neighbor_dist))
+
     sampling_rate_ghz = float(readout.sampling_rate.to_value(u.GHz))
     ref_sample_width_ns = float(readout.reference_pulse_sample_width.to_value(u.ns))
     # Single gain channel for FlashCam; take channel 0 of the reference pulse shape.
@@ -86,6 +112,8 @@ def export(camera: str, n_samples: int, out_path: str) -> None:
     lines.append(f"name {camera}")
     lines.append(f"num_pixels {n_pixels}")
     lines.append(f"num_samples {n_samples}")
+    lines.append(f"pix_area_m2 {pix_area_m2!r}")
+    lines.append(f"pix_pitch_m {pix_pitch_m!r}")
     lines.append(f"sampling_rate_ghz {sampling_rate_ghz!r}")
     lines.append(f"ref_sample_width_ns {ref_sample_width_ns!r}")
     lines.append(f"num_reference_pulse {ref_pulse.size}")
@@ -105,6 +133,8 @@ def export(camera: str, n_samples: int, out_path: str) -> None:
             lines.append(" ".join(row))
         lines.append("")
 
+    _emit_array("pix_x", pix_x, lambda v: repr(float(v)))
+    _emit_array("pix_y", pix_y, lambda v: repr(float(v)))
     _emit_array("reference_pulse", ref_pulse, lambda v: repr(float(v)))
     _emit_array("indptr", indptr, lambda v: str(int(v)))
     _emit_array("indices", indices, lambda v: str(int(v)))
