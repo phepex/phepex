@@ -11,6 +11,8 @@
 #include <cmath>
 #include <cstddef>
 #include <random>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace phepex {
@@ -194,6 +196,55 @@ inline std::uint32_t bounded_u32(Xoshiro256pp &g, std::uint32_t n) {
     return static_cast<std::uint32_t>((static_cast<std::uint64_t>(x) * n) >> 32);
 }
 
+// Uniform double in [0, 1) from the top 53 bits, as in xoshiro's reference code.
+inline double uniform01(Xoshiro256pp &g) {
+    return static_cast<double>(g() >> 11) * 0x1.0p-53;
+}
+
+// Standard normal pdf.
+inline double norm_pdf(double z) {
+    constexpr double inv_sqrt_2pi = 0.3989422804014326779399;
+    return inv_sqrt_2pi * std::exp(-0.5 * z * z);
+}
+
+// Skew-normal shape/scale/location from (length, skewness). `length` is the
+// standard deviation along the major axis, preserved under the skew.
+struct SkewNormal {
+    double a;      // shape
+    double loc;    // location
+    double scale;  // scale
+
+    SkewNormal(double length, double skewness) {
+        // See https://en.wikipedia.org/wiki/Skew_normal_distribution#Estimation
+        constexpr double pi = 3.14159265358979323846;
+        const double skew23 = std::pow(std::fabs(skewness), 2.0 / 3.0);
+        double delta =
+            (skewness == 0.0)
+                ? 0.0
+                : std::copysign(std::sqrt((pi / 2 * skew23) /
+                                          (skew23 + std::pow(2 - pi / 2, 2.0 / 3.0))),
+                                skewness);
+        // delta -> +-1 as |skewness| -> kMaxSkewness, where the shape parameter diverges.
+        // The caller's |skewness| is checked against that bound, but delta can still
+        // round to exactly +-1 within ~1e-16 of it, which would make `a` NaN; clamp so
+        // `a` stays finite (|a| <= 1e6, i.e. a half-normal to double precision).
+        delta = std::copysign(std::min(std::fabs(delta), 1.0 - 1e-12), delta);
+        a = delta / std::sqrt(1 - delta * delta);
+        scale = length / std::sqrt(1 - 2 * delta * delta / pi);
+        loc = -scale * delta * std::sqrt(2 / pi);
+    }
+
+    double pdf(double x) const {
+        const double z = (x - loc) / scale;
+        // 2 * phi(z) * Phi(a*z) / scale, with Phi expressed through erf
+        return norm_pdf(z) / scale * (1.0 + std::erf(a * z * 0.70710678118654752440));
+    }
+};
+
+// Largest |skewness| a skew-normal can represent: sqrt(2)*(4-pi)/(pi-2)^(3/2). The shape
+// parameter diverges as |skewness| approaches it.
+constexpr double kMaxSkewness = 0.995271746431;
+
 // Add v*g[0..klen) into buf at [base, base+klen). `buf` must have klen-wide guard zones
 // on each side so `base` is always valid, making this a branch-free, auto-vectorizable
 // loop.
@@ -280,6 +331,55 @@ void generate_waveforms(const double *charge, const double *time_ns, int n_event
             for (int n = 0; n < n_samples; ++n)
                 dst[n] = static_cast<float>(buf[guard + pad + n]);
         }
+    }
+}
+
+void generate_shower_image(const ShowerModel &model, const double *pix_x,
+                           const double *pix_y, int n_pix, double pixel_area_m2,
+                           std::uint64_t seed, double *charge, double *time_ns) {
+    // Validate up front: every one of these otherwise produces a NaN or negative Poisson
+    // mean, which the `expected > 0.0` test below turns into a silently all-zero image.
+    if (!(model.width_m > 0.0) || !(model.length_m > 0.0))
+        throw std::invalid_argument("generate_shower_image: width_m and length_m must be "
+                                    "> 0 (both appear in a denominator)");
+    if (!(model.intensity_pe >= 0.0))
+        throw std::invalid_argument("generate_shower_image: intensity_pe must be >= 0");
+    if (!(pixel_area_m2 > 0.0))
+        throw std::invalid_argument("generate_shower_image: pixel_area_m2 must be > 0");
+    if (!(std::fabs(model.skewness) < kMaxSkewness))
+        throw std::invalid_argument("generate_shower_image: |skewness| must be < " +
+                                    std::to_string(kMaxSkewness) +
+                                    ", the largest value a skew-normal can represent");
+
+    const SkewNormal longitudinal(model.length_m, model.skewness);
+    const double cos_psi = std::cos(model.psi_rad);
+    const double sin_psi = std::sin(model.psi_rad);
+    Xoshiro256pp rng(seed);
+    // The Poisson mean varies per pixel, so the distribution is re-parameterised rather
+    // than reset(); construct it once to keep the object out of the loop body.
+    std::poisson_distribution<int> pois;
+
+    for (int p = 0; p < n_pix; ++p) {
+        const double dx = pix_x[p] - model.centroid_x_m;
+        const double dy = pix_y[p] - model.centroid_y_m;
+        // Camera -> shower frame (ctapipe's camera_to_shower_coordinates).
+        const double lon = dx * cos_psi + dy * sin_psi;
+        const double trans = -dx * sin_psi + dy * cos_psi;
+
+        const double expected = model.intensity_pe * pixel_area_m2 *
+                                longitudinal.pdf(lon) * norm_pdf(trans / model.width_m) /
+                                model.width_m;
+        // Underflows to 0 many sigma out; skip the draw there (Poisson(0) == 0).
+        charge[p] = expected > 0.0
+                        ? static_cast<double>(pois(
+                              rng, std::poisson_distribution<int>::param_type(expected)))
+                        : 0.0;
+
+        const double jitter = model.time_jitter_ns > 0.0
+                                  ? model.time_jitter_ns * (2.0 * uniform01(rng) - 1.0)
+                                  : 0.0;
+        time_ns[p] =
+            lon * model.time_gradient_ns_per_m + model.time_intercept_ns + jitter;
     }
 }
 

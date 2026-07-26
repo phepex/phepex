@@ -25,7 +25,8 @@ namespace phepex {
 /// @param indices    CSR column indices (neighbour pixel ids), length indptr[n_pix]
 /// @param broken_pixels  (n_ch, n_pix) byte mask (nonzero => broken); broken neighbours
 ///                        are skipped. A byte mask (rather than bool*) lets callers pass
-///                        contiguous byte storage directly without a bool aliasing hazard.
+///                        contiguous byte storage directly without a bool aliasing
+///                        hazard.
 /// @param peak_out   caller-allocated n_ch*n_pix int64 (argmax sample index per pixel)
 /// @param neighbor_count  optional n_ch*n_pix int32 (caller-allocated); if non-null, gets
 ///                        the number of non-broken neighbours summed per pixel

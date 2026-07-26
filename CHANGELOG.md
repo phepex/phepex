@@ -70,6 +70,20 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
   library (CMake + Catch2 unit tests on Ubuntu and macOS, plus an installed-package
   `find_package`/pkg-config consumer build) and the Python package (from-source build on
   each supported interpreter, full pytest suite with the ctapipe reference on one).
+- `phepex::generate_shower_image` and `phepex::ShowerModel` in `<phepex/generate.hpp>`: fills
+  per-pixel `(charge, time_ns)` for one artificial shower image as input for
+  `generate_waveforms`. Charges are Poisson draws around
+  `intensity_pe * pdf(x, y) * pixel_area`, with `pdf` a Gaussian of sigma `width_m`
+  transverse to the major axis times a skew-normal derived from (`length_m`, `skewness`)
+  along it; times are linear in the longitudinal coordinate plus uniform jitter. C++ only;
+  Python callers have `ctapipe.image.toymodel`.
+- Example camera config, extracted from ctapipe by `scripts/export-camera-config.py`.
+- C++ micro-benchmark (`benchmarks/cpp/microbench.cpp`) which runs on one artificial event:
+  a skewed-Gaussian shower image (`generate_shower_image`) convolved with the camera's
+  reference pulse over a 200 MHz Poisson NSB (`generate_waveforms`), digitised to 12-bit
+  counts at 30 LSB per p.e. pulse integral on a 200 LSB pedestal. On the shipped FlashCam
+  config the image covers ~200 pixels at up to ~100 p.e. with pulse times spanning ~32–64
+  ns of the 88 ns window.
 
 ### Fixed
 - `phepex.deconvolve` zeroed the first output sample at `upsampling == 1` even when

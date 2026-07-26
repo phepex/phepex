@@ -10,9 +10,11 @@
 // hand-computed values or algebraic invariants, so libphepex can be validated in a
 // pure-C++ toolchain.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <numeric>
+#include <stdexcept>
 #include <random>
 #include <utility>
 #include <vector>
@@ -211,6 +213,125 @@ TEST_CASE("generate_waveforms: charge conservation, zero, reproducibility, NSB r
             tot += v;
         const double mean_per_pixel = tot / (static_cast<double>(ne) * np);
         REQUIRE(mean_per_pixel == Approx(rate * n * sw).epsilon(0.02));
+    }
+}
+
+namespace {
+// Square grid of pixel centres covering [-lim, lim]^2 at `pitch` spacing. A hexagonal
+// layout would only change which points the pdf is sampled at, which none of the checks
+// below depend on.
+struct PixelGrid {
+    std::vector<double> x, y;
+    double area;
+    PixelGrid(double pitch, double lim) : area(pitch * pitch) {
+        const int n = static_cast<int>(std::lround(lim / pitch));
+        for (int i = -n; i <= n; ++i)
+            for (int j = -n; j <= n; ++j) {
+                x.push_back(i * pitch);
+                y.push_back(j * pitch);
+            }
+    }
+    int size() const { return static_cast<int>(x.size()); }
+};
+
+phepex::ShowerModel test_shower() {
+    phepex::ShowerModel m;
+    m.length_m = 0.20;
+    m.width_m = 0.07;
+    m.psi_rad = 0.3;
+    m.skewness = 0.3;
+    m.intensity_pe = 20000.0;
+    m.time_gradient_ns_per_m = 20.0;
+    m.time_intercept_ns = 44.0;
+    return m;
+}
+}  // namespace
+
+TEST_CASE("generate_shower_image: intensity, time model, reproducibility", "[generate]") {
+    const PixelGrid grid(0.02, 1.2);  // covers the image out to many sigma
+    const auto model = test_shower();
+    std::vector<double> q(grid.size()), t(grid.size());
+
+    SECTION("charge sums to the model intensity, and vanishes far from the image") {
+        phepex::generate_shower_image(model, grid.x.data(), grid.y.data(), grid.size(),
+                                      grid.area, 1, q.data(), t.data());
+        const double tot = std::accumulate(q.begin(), q.end(), 0.0);
+        // Poisson on the total: sigma = sqrt(intensity); allow 5 sigma.
+        REQUIRE(tot ==
+                Approx(model.intensity_pe).margin(5.0 * std::sqrt(model.intensity_pe)));
+        // The pdf is > 15 sigma out at the grid corner in both axes.
+        for (int p = 0; p < grid.size(); ++p)
+            if (std::hypot(grid.x[p], grid.y[p]) > 1.5)
+                REQUIRE(q[p] == 0.0);
+    }
+
+    SECTION("time is linear in the longitudinal coordinate; jitter is bounded") {
+        auto m = model;
+        m.psi_rad = 0.0;  // longitudinal coordinate == x - centroid_x
+        m.centroid_x_m = 0.13;
+        phepex::generate_shower_image(m, grid.x.data(), grid.y.data(), grid.size(),
+                                      grid.area, 1, q.data(), t.data());
+        for (int p = 0; p < grid.size(); ++p) {
+            const double expected =
+                (grid.x[p] - m.centroid_x_m) * m.time_gradient_ns_per_m +
+                m.time_intercept_ns;
+            REQUIRE(t[p] == Approx(expected));
+        }
+
+        m.time_jitter_ns = 0.5;
+        std::vector<double> tj(grid.size());
+        phepex::generate_shower_image(m, grid.x.data(), grid.y.data(), grid.size(),
+                                      grid.area, 1, q.data(), tj.data());
+        double max_dev = 0.0;
+        for (int p = 0; p < grid.size(); ++p)
+            max_dev = std::max(max_dev, std::fabs(tj[p] - t[p]));
+        REQUIRE(max_dev <= m.time_jitter_ns);
+        // With thousands of pixels the jitter must actually populate its range.
+        REQUIRE(max_dev > 0.9 * m.time_jitter_ns);
+    }
+
+    SECTION("same seed -> identical image, different seed -> different charges") {
+        auto m = model;
+        m.time_jitter_ns = 0.5;
+        std::vector<double> q2(grid.size()), t2(grid.size());
+        phepex::generate_shower_image(m, grid.x.data(), grid.y.data(), grid.size(),
+                                      grid.area, 7, q.data(), t.data());
+        phepex::generate_shower_image(m, grid.x.data(), grid.y.data(), grid.size(),
+                                      grid.area, 7, q2.data(), t2.data());
+        REQUIRE(q == q2);
+        REQUIRE(t == t2);
+        phepex::generate_shower_image(m, grid.x.data(), grid.y.data(), grid.size(),
+                                      grid.area, 8, q2.data(), t2.data());
+        REQUIRE(q != q2);
+    }
+
+    SECTION("invalid model parameters throw instead of yielding an empty image") {
+        auto call = [&](const phepex::ShowerModel &m, double area) {
+            phepex::generate_shower_image(m, grid.x.data(), grid.y.data(), grid.size(),
+                                          area, 1, q.data(), t.data());
+        };
+        auto m = model;
+        m.width_m = 0.0;
+        REQUIRE_THROWS_AS(call(m, grid.area), std::invalid_argument);
+        m = model;
+        m.length_m = 0.0;
+        REQUIRE_THROWS_AS(call(m, grid.area), std::invalid_argument);
+        m = model;
+        m.intensity_pe = -1.0;
+        REQUIRE_THROWS_AS(call(m, grid.area), std::invalid_argument);
+        REQUIRE_THROWS_AS(call(model, 0.0), std::invalid_argument);
+
+        // Beyond the skew-normal's attainable |skewness| (~0.995271746) the shape
+        // parameter diverges; just below it the image must still be well-formed.
+        m = model;
+        m.skewness = 0.9953;
+        REQUIRE_THROWS_AS(call(m, grid.area), std::invalid_argument);
+        m.skewness = 2.0;
+        REQUIRE_THROWS_AS(call(m, grid.area), std::invalid_argument);
+        m.skewness = 0.9952;
+        REQUIRE_NOTHROW(call(m, grid.area));
+        REQUIRE(std::accumulate(q.begin(), q.end(), 0.0) ==
+                Approx(model.intensity_pe).margin(5.0 * std::sqrt(model.intensity_pe)));
     }
 }
 

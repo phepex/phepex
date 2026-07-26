@@ -61,3 +61,10 @@ Declared in `<phepex/generate.hpp>`.
 
 ```{doxygenfunction} phepex::generate_waveforms
 ```
+
+```{doxygenfunction} phepex::generate_shower_image
+```
+
+```{doxygenstruct} phepex::ShowerModel
+:members:
+```
