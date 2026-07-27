@@ -211,6 +211,39 @@ def test_mixed_scalar_and_per_pixel():
     assert np.array_equal(mixed, full)
 
 
+@pytest.mark.parametrize("up", [1, 4])
+@pytest.mark.parametrize("fwhm", [0.0, 3.0])
+def test_uint16_input_matches_float32(up, fwhm):
+    """uint16 ADC input takes the kernel's uint16 overload and agrees bit-for-bit.
+
+    The wrapper hands uint16 through uncopied; uint16 widens to float32 exactly, so the
+    two dtypes must give identical results on all four kernel branches (tiled/scalar x
+    smoothing on/off).
+    """
+    adc = np.random.default_rng(11).integers(0, 4096, (2, 40, 24), dtype=np.uint16)
+    kw = {
+        "pole_zero": 0.75,
+        "smoothing_fwhm": fwhm,
+        "baseline": 200.0,
+        "scale": 0.02,
+    }
+    out16 = preprocess(adc, up, **kw)
+    out32 = preprocess(adc.astype(np.float32), up, **kw)
+    assert out16.dtype == np.float32
+    assert np.array_equal(out16, out32)
+
+
+def test_signed_dtype_is_not_truncated_to_uint16():
+    """Non-float32, non-uint16 dtypes convert to float32, never to the uint16 overload.
+
+    A float64 array of negative samples would wrap to ~65531 if the uint16 overload were
+    reachable by dtype conversion; it is registered noconvert, so it is not.
+    """
+    wf = np.full((1, 3, 8), -5.0, np.float64)
+    out = preprocess(wf, 1, 0.0, baseline=0.0, scale=1.0)
+    assert np.all(out == -5.0)
+
+
 def test_broken_per_pixel_shape_raises():
     """A per-pixel array whose length is not n_pix raises (np.broadcast_to)."""
     wf = _wf(n_ch=1, n_pix=5, n_samples=20)

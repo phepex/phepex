@@ -383,35 +383,34 @@ int main(int argc, char **argv) {
     {
         const int up = 4;
         const float pz = 0.75f;
-        std::vector<float> rawf(raw.begin(), raw.end());
         std::vector<float> dst(static_cast<size_t>(num_pixels) * num_samples * up);
         std::vector<float> scratch(
             phepex::preprocess_waveforms_scratch_size(num_samples, up, nullptr));
         Run("preprocess up/pz batch", "4x upsampling + pole-zero, tiled", reps, [&] {
-            phepex::preprocess_waveforms(rawf.data(), num_pixels, num_samples, up, &pz, 0,
-                                         nullptr, &preprocess_offset, 0, &preprocess_scale, 0, dst.data(),
-                                         scratch.data());
+            phepex::preprocess_waveforms(
+                raw.data(), num_pixels, num_samples, up, &pz, 0, nullptr,
+                &preprocess_offset, 0, &preprocess_scale, 0, dst.data(), scratch.data());
             return std::pair<int, double>{1, dst[num_samples * up / 2]};
         });
     }
 
     // preprocess_waveform: smoothing only (upsampling 1, no pole-zero)
     {
-    const int up = 1;
-    const float pz = 0.0f;
-    const auto coeffs = phepex::calculate_smoothing_coefficients(3.0);
-    std::vector<float> dst(static_cast<size_t>(num_pixels) * num_samples * up);
-    std::vector<float> scratch(static_cast<size_t>(num_samples) * up);
-    Run("preprocess smoothing", "Deriche smoothing only", reps, [&] {
-        for (int p = 0; p < num_pixels; p++)
-            phepex::preprocess_waveform(
-                raw.data() + static_cast<size_t>(p) * num_samples, num_samples, up,
-                pz, &coeffs, preprocess_offset, preprocess_scale,
-                dst.data() + static_cast<size_t>(p) * num_samples * up,
-                scratch.data());
-        return std::pair<int, double>{1, dst[num_samples * up / 2]};
-    });
-}
+        const int up = 1;
+        const float pz = 0.0f;
+        const auto coeffs = phepex::calculate_smoothing_coefficients(3.0);
+        std::vector<float> dst(static_cast<size_t>(num_pixels) * num_samples * up);
+        std::vector<float> scratch(static_cast<size_t>(num_samples) * up);
+        Run("preprocess smoothing", "Deriche smoothing only", reps, [&] {
+            for (int p = 0; p < num_pixels; p++)
+                phepex::preprocess_waveform(
+                    raw.data() + static_cast<size_t>(p) * num_samples, num_samples, up,
+                    pz, &coeffs, preprocess_offset, preprocess_scale,
+                    dst.data() + static_cast<size_t>(p) * num_samples * up,
+                    scratch.data());
+            return std::pair<int, double>{1, dst[num_samples * up / 2]};
+        });
+    }
 
     // preprocess_waveform: 4x upsampling + smoothing (no pole-zero)
     {
@@ -455,14 +454,13 @@ int main(int argc, char **argv) {
         const int up = 4;
         const float pz = 0.75f;
         const auto coeffs = phepex::calculate_smoothing_coefficients(3.0);
-        std::vector<float> rawf(raw.begin(), raw.end());
         std::vector<float> dst(static_cast<size_t>(num_pixels) * num_samples * up);
         std::vector<float> scratch(
             phepex::preprocess_waveforms_scratch_size(num_samples, up, &coeffs));
         Run("preprocess up/pz/smoothing batch", "all sub-kernels, tiled", reps, [&] {
-            phepex::preprocess_waveforms(rawf.data(), num_pixels, num_samples, up, &pz, 0,
-                                         &coeffs, &preprocess_offset, 0, &preprocess_scale, 0, dst.data(),
-                                         scratch.data());
+            phepex::preprocess_waveforms(
+                raw.data(), num_pixels, num_samples, up, &pz, 0, &coeffs,
+                &preprocess_offset, 0, &preprocess_scale, 0, dst.data(), scratch.data());
             return std::pair<int, double>{1, dst[num_samples * up / 2]};
         });
     }

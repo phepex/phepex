@@ -18,16 +18,21 @@ import numpy as np
 from . import _core
 
 
-def _as_3d(waveforms):
-    """Promote ``waveforms`` to a contiguous float32 (n_channels, n_pix, n_samples) array.
+def _as_3d(waveforms, keep_uint16=False):
+    """Promote ``waveforms`` to a contiguous (n_channels, n_pix, n_samples) array.
 
     Missing leading axes are *prepended* (a 2D ``(n_pix, n_samples)`` array becomes
     ``(1, n_pix, n_samples)``), unlike ``np.atleast_3d`` which appends a trailing axis.
+
+    The dtype becomes float32, except that ``keep_uint16=True`` passes a uint16 array
+    through unconverted: ``_core.preprocess`` has a uint16 overload that reads raw ADC
+    samples directly, so casting here would add a full copy of the input for nothing.
     """
-    wf = np.asarray(waveforms, dtype=np.float32)
+    wf = np.asarray(waveforms)
+    dtype = wf.dtype if (keep_uint16 and wf.dtype == np.uint16) else np.float32
     while wf.ndim < 3:
         wf = wf[np.newaxis, ...]
-    return np.ascontiguousarray(wf, dtype=np.float32)
+    return np.ascontiguousarray(wf, dtype=dtype)
 
 
 def _per_pixel(x, n_ch, n_pix):
@@ -107,10 +112,11 @@ def preprocess(
     n_samples*upsampling).
 
     With ``smoothing_fwhm=0`` the result is bit-identical to ``deconvolve`` (same
-    underlying upsample+pole-zero kernel). Integer inputs (e.g. uint16 ADC samples) are
-    cast to float32.
+    underlying upsample+pole-zero kernel). uint16 input (raw ADC samples) is passed to the
+    kernel's uint16 overload uncopied; every other dtype is cast to float32. uint16 widens
+    to float32 exactly, so both paths give bit-identical results.
     """
-    wf = _as_3d(waveforms)
+    wf = _as_3d(waveforms, keep_uint16=True)
     n_ch, n_pix, _ = wf.shape
     return _core.preprocess(
         wf,

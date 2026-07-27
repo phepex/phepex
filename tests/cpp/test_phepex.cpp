@@ -611,6 +611,57 @@ TEST_CASE("preprocess_waveform: external scratch buffer matches internal allocat
     REQUIRE(std::memcmp(got.data(), ref.data(), got.size() * sizeof(float)) == 0);
 }
 
+TEST_CASE("preprocess_waveforms: uint16 input matches the per-row scalar kernel",
+          "[preprocess]") {
+    // 40 rows spans more than one internal tile plus a remainder for any tile width, so
+    // both the tiled body and the scalar remainder loop are covered. Per-row (stride 1)
+    // coefficients exercise the per-lane parameter gather.
+    const int n_rows = 40, n = 24;
+    std::mt19937 rng(4242);
+    std::uniform_int_distribution<int> adc(0, 4095);
+    std::vector<std::uint16_t> src(static_cast<std::size_t>(n_rows) * n);
+    for (auto &v : src)
+        v = static_cast<std::uint16_t>(adc(rng));
+    std::vector<float> srcf(src.begin(), src.end());
+
+    std::vector<float> pz(n_rows), offset(n_rows), scale(n_rows);
+    for (int r = 0; r < n_rows; r++) {
+        pz[r] = 0.5f + 0.01f * r;
+        offset[r] = 2.0f + 0.5f * r;
+        scale[r] = 0.25f + 0.05f * r;
+    }
+
+    const auto sc = phepex::calculate_smoothing_coefficients(4.0);
+    struct Cfg {
+        int up;
+        const phepex::SmoothingCoefficients *sm;
+    };
+    // All four branches: tiled upsampling+smoothing, tiled upsampling, tiled smoothing,
+    // and the per-row scalar path (up == 1, no smoothing).
+    for (const Cfg cfg : {Cfg{4, &sc}, Cfg{4, nullptr}, Cfg{1, &sc}, Cfg{1, nullptr}}) {
+        const std::size_t n_up = static_cast<std::size_t>(cfg.up) * n;
+        std::vector<float> ref(static_cast<std::size_t>(n_rows) * n_up);
+        std::vector<float> got(static_cast<std::size_t>(n_rows) * n_up);
+        std::vector<float> from_float(static_cast<std::size_t>(n_rows) * n_up);
+
+        for (int r = 0; r < n_rows; r++)
+            phepex::preprocess_waveform(src.data() + static_cast<std::size_t>(r) * n, n,
+                                        cfg.up, pz[r], cfg.sm, offset[r], scale[r],
+                                        ref.data() + r * n_up);
+        phepex::preprocess_waveforms(src.data(), n_rows, n, cfg.up, pz.data(), 1, cfg.sm,
+                                     offset.data(), 1, scale.data(), 1, got.data());
+        REQUIRE(std::memcmp(got.data(), ref.data(), got.size() * sizeof(float)) == 0);
+
+        // uint16 widens exactly, so the float overload on the converted input must agree
+        // bit-for-bit as well.
+        phepex::preprocess_waveforms(srcf.data(), n_rows, n, cfg.up, pz.data(), 1, cfg.sm,
+                                     offset.data(), 1, scale.data(), 1,
+                                     from_float.data());
+        REQUIRE(std::memcmp(from_float.data(), ref.data(), got.size() * sizeof(float)) ==
+                0);
+    }
+}
+
 TEST_CASE("preprocess_waveforms: external scratch buffer matches internal allocation",
           "[preprocess]") {
     // 40 rows spans more than one internal tile plus a remainder for any tile width.

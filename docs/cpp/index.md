@@ -31,7 +31,10 @@ is bit-identical to the per-row form.
 ```{doxygenfunction} phepex::preprocess_waveform(const float *src, int n_samples, int upsampling, float pole_zero, const SmoothingCoefficients *smoothing, float offset, float scale, float *out, float *scratch = nullptr);
 ```
 
-```{doxygenfunction} phepex::preprocess_waveforms
+```{doxygenfunction} phepex::preprocess_waveforms(const std::uint16_t *src, int n_rows, int n_samples, int upsampling, const float *pole_zero, std::ptrdiff_t pole_zero_stride, const SmoothingCoefficients *smoothing, const float *offset, std::ptrdiff_t offset_stride, const float *scale, std::ptrdiff_t scale_stride, float *out, float *scratch = nullptr);
+```
+
+```{doxygenfunction} phepex::preprocess_waveforms(const float *src, int n_rows, int n_samples, int upsampling, const float *pole_zero, std::ptrdiff_t pole_zero_stride, const SmoothingCoefficients *smoothing, const float *offset, std::ptrdiff_t offset_stride, const float *scale, std::ptrdiff_t scale_stride, float *out, float *scratch = nullptr);
 ```
 
 ```{doxygenfunction} phepex::preprocess_waveforms_scratch_size

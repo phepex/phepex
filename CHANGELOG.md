@@ -17,19 +17,23 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
   and latency-bound, so filling it with independent rows raises throughput. On the FlashCam
   micro-benchmark (1764 pixels, upsampling 4, 22 samples, aarch64/NEON) the upsampling +
   pole-zero + smoothing sweep is ~5x faster (1125 -> 222 us/event; `preprocess up/pz/smoothing`
-  vs `preprocess up/pz/smoothing batch`). Results are bit-for-bit unchanged: the tiled path uses
-  double-precision smoothing accumulators as before, and the no-smoothing path is routed to the
-  same scalar kernel. The gain is from breaking the latency bound (independent rows in the
-  reorder window), not SIMD width alone.
+  vs `preprocess up/pz/smoothing batch`). `upsampling > 1` without smoothing is tiled as well
+  (`preprocess up/pz batch`); only the single case with no loop-carried recurrence --
+  `upsampling == 1` and `smoothing == nullptr` -- stays on the per-row scalar kernel. Results are
+  bit-for-bit unchanged: the tiled path uses double-precision smoothing accumulators as before
+  and performs the per-lane arithmetic in the same order as the scalar kernels. The gain is from
+  breaking the latency bound (independent rows in the reorder window), not SIMD width alone.
 - `neighbor_peak_indices` accumulates neighbour waveforms in pairs (`buf[j] += a[j] +
   b[j]`) instead of one at a time, and for `local_weight == 0` seeds the accumulator from
   the first neighbour pair rather than a zeroed `self*0` pass. The per-kernel
   micro-benchmark attributes the kernel's cost to the read-modify-write traffic on the
   accumulator, not the neighbour reads (which are L1/L2-resident); pairing halves that
   traffic and skipping the self pass removes one full sweep over the trace. On the
-  benchmarked aarch64 core (1764-pixel FlashCam, upsampling 4, 22 samples) this is ~22%
-  faster for `local_weight == 0` (216 -> 169 us/event) and ~17% for `local_weight != 0`
-  (215 -> 182 us/event). The strategy is selectable at compile time via the CMake option
+  benchmarked aarch64 core (Apple M1, gcc -O3; 1764-pixel FlashCam, upsampling 4, 22
+  samples, min/op over 400 reps) this is ~22% faster for `local_weight == 0` (227 -> 176
+  us/event) and ~18% for `local_weight != 0` (231 -> 189 us/event). Pairwise grouping
+  changes the float32 summation order, so the argmax can differ from a strictly sequential
+  sum in near-ties within ~1 ULP. The strategy is selectable at compile time via the CMake option
   `PHEPEX_NEIGHBOR_PAIRWISE_SUM` (default `ON`); building with
   `-DPHEPEX_NEIGHBOR_PAIRWISE_SUM=OFF`, or compiling `neighbor.cpp` with the preprocessor
   macro `PHEPEX_NEIGHBOR_PAIRWISE_SUM=0`, restores the sequential sum.
@@ -79,7 +83,12 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
   (`upsampling > 1`) and/or the Deriche IIR (`smoothing != nullptr`) -- filling the recurrence
   with independent rows. The one case without such a recurrence, `upsampling == 1` with no
   smoothing (a pole-zero stencil that already vectorises across samples), uses the per-row
-  scalar path, where tiling would only add transpose overhead. Float input only. The result is
+  scalar path, where tiling would only add transpose overhead. Overloaded for `const
+  std::uint16_t *` and `const float *` input, matching `preprocess_waveform`; uint16 rows are
+  widened during the tile transpose the batched path performs anyway, so raw ADC input costs no
+  more than float input and needs no caller-side conversion pass. Input and output rows must be
+  contiguous (row `r` at `src[r * n_samples]`, `out[r * n_samples * upsampling]`); strided views
+  have to be copied by the caller. The result is
   bit-identical to calling `preprocess_waveform` per row (double-precision smoothing accumulators
   and arithmetic order are unchanged); the `n_rows % tile_width` remainder rows use
   `preprocess_waveform` directly. The tile width (default 24) is a build-time constant set via the
@@ -101,7 +110,14 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
   result matches `deconvolve` bit-for-bit (shared upsample kernel). A scalar
   `pole_zero`/`baseline`/`scale` is passed to `_core.preprocess` as a length-1 array and
   applied to every row with row stride 0, so a scalar-argument call does not allocate a
-  full `(n_channels*n_pix,)` array per parameter.
+  full `(n_channels*n_pix,)` array per parameter. `waveforms` may be float32 or uint16:
+  `_core.preprocess` is bound for both dtypes and the wrapper forwards a uint16 array
+  uncopied (the kernel widens it inside the tile transpose it performs anyway), so raw ADC
+  input no longer costs a full float32 staging array — on a (1, 1764, 22) uint16 batch with
+  upsampling 4 and smoothing, 239 vs 261 us/call and 1.8 KiB instead of ~152 KiB of
+  Python-side allocation. Every other dtype is converted to float32; the uint16 overload is
+  bound `noconvert`, so it is reachable only by an exact dtype match and a float64 array can
+  never be truncated into it. uint16 widens exactly, so both paths agree bit-for-bit.
 - Documentation version switcher in the furo sidebar. A `switcher.json` at the site root lists
   the published versions; `docs/_static/version-switcher.js` fetches it at runtime and fills a
   `<select>`. The control is server-rendered with the `hidden` attribute and revealed only
