@@ -59,7 +59,9 @@ void preprocess_waveform(const float *src, int n_samples, int upsampling, float 
                          float scale, float *out, float *scratch = nullptr);
 
 /// Apply preprocess_waveform() to each of `n_rows` consecutive waveforms of `n_samples`
-/// samples, writing `n_rows * n_samples * upsampling` floats to `out`. `pole_zero`,
+/// samples, writing `n_rows * n_samples * upsampling` floats to `out`. Requires
+/// `upsampling >= 1`; `upsampling == 0` is not checked and reads out of bounds.
+/// `pole_zero`,
 /// `offset` and `scale` are read per row as `array[row * stride]`; a stride of 0
 /// broadcasts a single value to every row, a stride of 1 selects a distinct per-row
 /// value.
@@ -77,14 +79,26 @@ void preprocess_waveform(const float *src, int n_samples, int upsampling, float 
 /// samples -- uses the per-row scalar path directly, as tiling would only add transpose
 /// overhead.
 ///
-/// Float input only. `out` is caller-allocated. `scratch` is an optional workspace for
-/// the tile buffers of the batched path: pass a buffer of at least
+/// `out` is caller-allocated. Input rows are read contiguously (row `r` starts at
+/// `src[r * n_samples]`), as are output rows (`out[r * n_samples * upsampling]`); strided
+/// views must be copied by the caller. uint16 input is widened during the tile transpose
+/// the batched path performs anyway, so it costs no more than float input.
+///
+/// `scratch` is an optional workspace for the tile buffers of the batched path: pass a
+/// buffer of at least
 /// preprocess_waveforms_scratch_size(n_samples, upsampling, smoothing) floats to avoid
 /// the per-call allocation (e.g. when preprocessing many events in a loop); if null a
 /// buffer is allocated internally for the duration of the call. Used only on the tiled
 /// path; ignored when `upsampling == 1` and `smoothing == nullptr` (where the size query
 /// returns 0). The caller-provided scratch must not be shared between concurrent calls;
 /// the null path is reentrant.
+void preprocess_waveforms(const std::uint16_t *src, int n_rows, int n_samples,
+                          int upsampling, const float *pole_zero,
+                          std::ptrdiff_t pole_zero_stride,
+                          const SmoothingCoefficients *smoothing, const float *offset,
+                          std::ptrdiff_t offset_stride, const float *scale,
+                          std::ptrdiff_t scale_stride, float *out,
+                          float *scratch = nullptr);
 void preprocess_waveforms(const float *src, int n_rows, int n_samples, int upsampling,
                           const float *pole_zero, std::ptrdiff_t pole_zero_stride,
                           const SmoothingCoefficients *smoothing, const float *offset,

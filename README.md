@@ -64,7 +64,7 @@ bindings automatically.
 | `PHEPEX_BUILD_EXAMPLES` | `OFF` | Build the C++ example (`examples/example.cpp`). |
 | `PHEPEX_BUILD_TESTS` | `OFF` | Build the standalone C++ unit tests (vendored Catch2). |
 | `PHEPEX_BUILD_BENCHMARKS` | `OFF` | Build the C++ per-kernel micro-benchmark. |
-| `PHEPEX_NEIGHBOR_PAIRWISE_SUM` | `ON` | Accumulate the neighbour sum in `neighbor_peak_indices` pairwise (up to 25% faster depending on target). `OFF` selects the sequential sum. See the note in `include/phepex/neighbor.hpp`. |
+| `PHEPEX_NEIGHBOR_PAIRWISE_SUM` | `ON` | Accumulate the neighbour sum in `neighbor_peak_indices` pairwise (~18-22% faster on the benchmarked aarch64 core; see the CHANGELOG for the measurement). `OFF` selects the sequential sum, which is what ctapipe computes; pairwise grouping alters the float32 summation order, so the peak index can differ in near-ties within ~1 ULP. See the note in `include/phepex/neighbor.hpp`. |
 | `PHEPEX_PREPROCESS_TILE_WIDTH` | `24` | Number of waveforms mapped onto SIMD lanes per tile in the batched `preprocess_waveforms` path. Bit-identical for any value `>= 1`; performance only. See the tuning notes below. |
 
 ### Tuning `PHEPEX_PREPROCESS_TILE_WIDTH`

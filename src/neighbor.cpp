@@ -48,10 +48,11 @@ void neighbor_peak_indices(const float *waveforms, int n_ch, int n_pix, int n_up
             // Accumulate neighbours in pairs (buf[j] += a[j] + b[j]). This halves the
             // read-modify-write traffic on buf, which the per-kernel micro-benchmark
             // identifies as the bottleneck (neighbour reads are L1/L2 resident and cheap;
-            // the repeated buf load+store is not): ~20% faster for local_weight != 0 on
-            // Zen 4. For local_weight == 0 the self term contributes nothing, so buf is
-            // seeded from the first neighbour pair instead of a zeroed self*0 pass,
-            // skipping one full sweep over the trace (~26% faster). Pairwise grouping
+            // the repeated buf load+store is not): ~18% faster for local_weight != 0 on
+            // the benchmarked aarch64 core. For local_weight == 0 the self term
+            // contributes nothing, so buf is seeded from the first neighbour pair instead
+            // of a zeroed self*0 pass, skipping one full sweep over the trace (~22%
+            // faster; see the CHANGELOG for the measurement). Pairwise grouping
             // changes the float32 summation order, so the argmax differs from a strictly
             // sequential sum only in near-ties within ~1 ULP.
             bool seeded = false;

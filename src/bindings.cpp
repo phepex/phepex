@@ -137,8 +137,12 @@ adaptive_centroid(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms,
 // allocate a full per-row array. A length-1 array is read with row stride 0.
 // smoothing_fwhm > 0 enables the Deriche IIR pass with coefficients computed once and
 // shared across rows.
+// Instantiated for float32 and uint16 waveforms (the raw ADC dtype); phepex::
+// preprocess_waveforms widens uint16 inside the tile transpose it performs anyway, so the
+// uint16 instantiation reads the caller's array directly instead of a float32 copy.
+template <typename Sample>
 nb::ndarray<nb::numpy, float>
-preprocess(nb::ndarray<const float, nb::ndim<3>, nb::c_contig> waveforms, int upsampling,
+preprocess(nb::ndarray<const Sample, nb::ndim<3>, nb::c_contig> waveforms, int upsampling,
            nb::ndarray<const float, nb::ndim<1>, nb::c_contig> pole_zero,
            double smoothing_fwhm,
            nb::ndarray<const float, nb::ndim<1>, nb::c_contig> baseline,
@@ -234,14 +238,26 @@ generate_waveforms(nb::ndarray<const double, nb::ndim<2>, nb::c_contig> charge,
 
 NB_MODULE(_core, m) {
     m.doc() = "phepex C++ kernels (photo-electron pulse extraction).";
-    m.def("preprocess", &preprocess, nb::arg("waveforms"), nb::arg("upsampling"),
+    // Two waveform dtypes, resolved by nanobind's overload order. float32 is registered
+    // first so that any other dtype (float64, int32, ...) is converted to float32 in
+    // nanobind's second, conversion-enabled pass -- never to uint16, which would
+    // truncate. The uint16 overload takes `waveforms` noconvert, so it is reachable only
+    // by an exact uint16 match and never performs a copy; raw ADC arrays therefore reach
+    // the kernel without a float32 staging pass.
+    const char *preprocess_doc =
+        "Upsample + pole-zero deconvolution + optional Deriche smoothing per (channel, "
+        "pixel); float32 (n_ch,n_pix,n_samples*upsampling). waveforms is float32 or "
+        "uint16 "
+        "(other dtypes are converted to float32); upsampling must be >= 1; "
+        "pole_zero/baseline/scale are length-1 or (n_ch*n_pix,) arrays; smoothing_fwhm "
+        "<= "
+        "0 disables smoothing.";
+    m.def("preprocess", &preprocess<float>, nb::arg("waveforms"), nb::arg("upsampling"),
           nb::arg("pole_zero"), nb::arg("smoothing_fwhm"), nb::arg("baseline"),
-          nb::arg("scale"),
-          "Upsample + pole-zero deconvolution + optional Deriche smoothing per (channel, "
-          "pixel); float32 (n_ch,n_pix,n_samples*upsampling). upsampling must be >= 1; "
-          "pole_zero/baseline/scale are length-1 or (n_ch*n_pix,) arrays; smoothing_fwhm "
-          "<= "
-          "0 disables smoothing.");
+          nb::arg("scale"), preprocess_doc);
+    m.def("preprocess", &preprocess<std::uint16_t>, nb::arg("waveforms").noconvert(),
+          nb::arg("upsampling"), nb::arg("pole_zero"), nb::arg("smoothing_fwhm"),
+          nb::arg("baseline"), nb::arg("scale"), preprocess_doc);
     m.def("preprocess_valid_range", &preprocess_valid_range, nb::arg("upsampling"),
           nb::arg("pole_zero"), nb::arg("smoothing_fwhm"), nb::arg("n_samples"),
           "Trustworthy (non-edge) output-sample range (lo, hi) of preprocess (DVR "

@@ -45,7 +45,7 @@ option(PHEPEX_BUILD_TESTS "Build the standalone C++ unit tests (vendored Catch2)
 option(PHEPEX_BUILD_BENCHMARKS "Build the C++ per-kernel micro-benchmark" OFF)
 
 # neighbor_peak_indices accumulates neighbour waveforms in pairs by default, which halves
-# the accumulator read-modify-write traffic (~17-22% faster on the benchmarked aarch64
+# the accumulator read-modify-write traffic (~18-22% faster on the benchmarked aarch64
 # core). The extra branch and altered vectorisation may not pay off on every target, so
 # the strategy is selectable; OFF falls back to the sequential sum.
 option(PHEPEX_NEIGHBOR_PAIRWISE_SUM

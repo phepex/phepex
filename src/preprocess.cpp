@@ -129,9 +129,11 @@ std::size_t tiled_scratch_size(int n_samples, int upsampling, bool smoothing) {
 // preprocess_waveform() per row.
 
 // Batched deconvolve_unit_upsampling (upsampling == 1) over K lanes. The scalar kernel's
-// pole_zero == 0 fast path is not special-cased here: cur - 0*prev == cur bit-for-bit, so
-// the general recurrence reproduces it exactly while allowing pole_zero to differ per
-// lane.
+// pole_zero == 0 fast path is not special-cased here: for finite samples
+// cur - 0*prev == cur bit-for-bit, so the general recurrence reproduces it exactly while
+// allowing pole_zero to differ per lane. The equivalence does not extend to non-finite
+// input: with pole_zero == 0 and prev == +-inf this yields NaN where the scalar fast path
+// yields cur (0*inf is NaN, and cur - NaN is NaN).
 template <int K>
 void deconvolve_batched(const float *xin, int n, const float *pole_zero,
                         const float *offset, const float *scale, float *tile) {
@@ -272,6 +274,91 @@ void preprocess_impl(const InputType *src, int n_samples, int upsampling, float 
     }
 }
 
+// Shared body of the two preprocess_waveforms overloads (uint16 and float input). The
+// input type is confined to the tile transpose below (and to the scalar per-row
+// fallbacks, which dispatch to the matching preprocess_waveform overload); every batched
+// kernel operates on the float tile, so uint16 input costs nothing extra -- the widening
+// happens during a copy that the tiled path performs regardless.
+template <typename InputType>
+void preprocess_batch_impl(const InputType *src, int n_rows, int n_samples,
+                           int upsampling, const float *pole_zero,
+                           std::ptrdiff_t pole_zero_stride,
+                           const SmoothingCoefficients *smoothing, const float *offset,
+                           std::ptrdiff_t offset_stride, const float *scale,
+                           std::ptrdiff_t scale_stride, float *out, float *scratch) {
+    const int n_up = upsampling * n_samples;
+    const auto row = [&](int r, float *row_scratch) {
+        preprocess_waveform(src + static_cast<std::size_t>(r) * n_samples, n_samples,
+                            upsampling, pole_zero[r * pole_zero_stride], smoothing,
+                            offset[r * offset_stride], scale[r * scale_stride],
+                            out + static_cast<std::size_t>(r) * n_up, row_scratch);
+    };
+
+    // Scalar per-row path when nothing latency-bound is present to batch: at upsampling
+    // == 1 with no smoothing the kernel is deconvolve_unit_upsampling, a stencil that
+    // already vectorises across samples (no loop-carried output dependency), so tiling
+    // would only add transpose overhead. Every other case carries a latency-bound
+    // recurrence -- the upsampling running sums (upsampling > 1) and/or the Deriche IIR
+    // (smoothing) -- whose throughput the tiling raises by more than the transpose costs.
+    if (upsampling == 1 && smoothing == nullptr) {
+        for (int r = 0; r < n_rows; r++)
+            row(r, nullptr);
+        return;
+    }
+
+    constexpr int K = TILE_WIDTH;
+    // Sample-major tiles carved from one buffer: in_tile (transposed input) | up_tile
+    // (upsampled/deconvolved intermediate) | out_tile (smoothed output, only when
+    // smoothing runs; otherwise up_tile is transposed out directly). The buffer is
+    // caller-provided via `scratch` (sized by tiled_scratch_size) or allocated once here;
+    // either way it is reused across all tiles, so the intermediate stays resident
+    // instead of a per-row round-trip.
+    const std::size_t in_sz = static_cast<std::size_t>(n_samples) * K;
+    const std::size_t up_sz = static_cast<std::size_t>(n_up) * K;
+    std::vector<float> owned;
+    float *buf = scratch;
+    if (buf == nullptr) {
+        owned.resize(tiled_scratch_size(n_samples, upsampling, smoothing != nullptr));
+        buf = owned.data();
+    }
+    float *in_tile = buf;
+    float *up_tile = buf + in_sz;
+    float *out_tile = (smoothing != nullptr) ? up_tile + up_sz : nullptr;
+    float pz[K], off[K], scl[K];
+
+    int p = 0;
+    for (; p + K <= n_rows; p += K) {
+        for (int k = 0; k < K; k++) {
+            const int r = p + k;
+            pz[k] = pole_zero[r * pole_zero_stride];
+            off[k] = offset[r * offset_stride];
+            scl[k] = scale[r * scale_stride];
+            const InputType *s = src + static_cast<std::size_t>(r) * n_samples;
+            for (int i = 0; i < n_samples; i++)
+                in_tile[i * K + k] = static_cast<float>(s[i]);
+        }
+        if (upsampling == 1)
+            deconvolve_batched<K>(in_tile, n_samples, pz, off, scl, up_tile);
+        else
+            upsample_batched<K>(n_samples, upsampling, in_tile, pz, off, scl, up_tile);
+        const float *result = up_tile;
+        if (smoothing != nullptr) {
+            smooth_batched<K>(up_tile, out_tile, n_up, *smoothing);
+            result = out_tile;
+        }
+        for (int k = 0; k < K; k++) {
+            float *d = out + static_cast<std::size_t>(p + k) * n_up;
+            for (int i = 0; i < n_up; i++)
+                d[i] = result[i * K + k];
+        }
+    }
+    // Remainder rows (n_rows % K): scalar path, bit-identical to the tiled body. up_tile
+    // doubles as smoothing scratch (n_up floats); it is unused by the no-smoothing
+    // kernels.
+    for (; p < n_rows; p++)
+        row(p, up_tile);
+}
+
 }  // namespace
 
 SmoothingCoefficients calculate_smoothing_coefficients(double smoothing_fwhm) {
@@ -314,82 +401,25 @@ void preprocess_waveform(const float *src, int n_samples, int upsampling, float 
                     scratch);
 }
 
+void preprocess_waveforms(const std::uint16_t *src, int n_rows, int n_samples,
+                          int upsampling, const float *pole_zero,
+                          std::ptrdiff_t pole_zero_stride,
+                          const SmoothingCoefficients *smoothing, const float *offset,
+                          std::ptrdiff_t offset_stride, const float *scale,
+                          std::ptrdiff_t scale_stride, float *out, float *scratch) {
+    preprocess_batch_impl(src, n_rows, n_samples, upsampling, pole_zero, pole_zero_stride,
+                          smoothing, offset, offset_stride, scale, scale_stride, out,
+                          scratch);
+}
+
 void preprocess_waveforms(const float *src, int n_rows, int n_samples, int upsampling,
                           const float *pole_zero, std::ptrdiff_t pole_zero_stride,
                           const SmoothingCoefficients *smoothing, const float *offset,
                           std::ptrdiff_t offset_stride, const float *scale,
                           std::ptrdiff_t scale_stride, float *out, float *scratch) {
-    const int n_up = upsampling * n_samples;
-    const auto row = [&](int r, float *scratch) {
-        preprocess_waveform(src + static_cast<std::size_t>(r) * n_samples, n_samples,
-                            upsampling, pole_zero[r * pole_zero_stride], smoothing,
-                            offset[r * offset_stride], scale[r * scale_stride],
-                            out + static_cast<std::size_t>(r) * n_up, scratch);
-    };
-
-    // Scalar per-row path when nothing latency-bound is present to batch: at upsampling
-    // == 1 with no smoothing the kernel is deconvolve_unit_upsampling, a stencil that
-    // already vectorises across samples (no loop-carried output dependency), so tiling
-    // would only add transpose overhead. Every other case carries a latency-bound
-    // recurrence -- the upsampling running sums (upsampling > 1) and/or the Deriche IIR
-    // (smoothing) -- whose throughput the tiling raises by more than the transpose costs.
-    if (upsampling == 1 && smoothing == nullptr) {
-        for (int r = 0; r < n_rows; r++)
-            row(r, nullptr);
-        return;
-    }
-
-    constexpr int K = TILE_WIDTH;
-    // Sample-major tiles carved from one buffer: in_tile (transposed input) | up_tile
-    // (upsampled/deconvolved intermediate) | out_tile (smoothed output, only when
-    // smoothing runs; otherwise up_tile is transposed out directly). The buffer is
-    // caller-provided via `scratch` (sized by tiled_scratch_size) or allocated once here;
-    // either way it is reused across all tiles, so the intermediate stays resident
-    // instead of a per-row round-trip.
-    const std::size_t in_sz = static_cast<std::size_t>(n_samples) * K;
-    const std::size_t up_sz = static_cast<std::size_t>(n_up) * K;
-    std::vector<float> owned;
-    float *buf = scratch;
-    if (buf == nullptr) {
-        owned.resize(tiled_scratch_size(n_samples, upsampling, smoothing != nullptr));
-        buf = owned.data();
-    }
-    float *in_tile = buf;
-    float *up_tile = buf + in_sz;
-    float *out_tile = (smoothing != nullptr) ? up_tile + up_sz : nullptr;
-    float pz[K], off[K], scl[K];
-
-    int p = 0;
-    for (; p + K <= n_rows; p += K) {
-        for (int k = 0; k < K; k++) {
-            const int r = p + k;
-            pz[k] = pole_zero[r * pole_zero_stride];
-            off[k] = offset[r * offset_stride];
-            scl[k] = scale[r * scale_stride];
-            const float *s = src + static_cast<std::size_t>(r) * n_samples;
-            for (int i = 0; i < n_samples; i++)
-                in_tile[i * K + k] = s[i];
-        }
-        if (upsampling == 1)
-            deconvolve_batched<K>(in_tile, n_samples, pz, off, scl, up_tile);
-        else
-            upsample_batched<K>(n_samples, upsampling, in_tile, pz, off, scl, up_tile);
-        const float *result = up_tile;
-        if (smoothing != nullptr) {
-            smooth_batched<K>(up_tile, out_tile, n_up, *smoothing);
-            result = out_tile;
-        }
-        for (int k = 0; k < K; k++) {
-            float *d = out + static_cast<std::size_t>(p + k) * n_up;
-            for (int i = 0; i < n_up; i++)
-                d[i] = result[i * K + k];
-        }
-    }
-    // Remainder rows (n_rows % K): scalar path, bit-identical to the tiled body. up_tile
-    // doubles as smoothing scratch (n_up floats); it is unused by the no-smoothing
-    // kernels.
-    for (; p < n_rows; p++)
-        row(p, up_tile);
+    preprocess_batch_impl(src, n_rows, n_samples, upsampling, pole_zero, pole_zero_stride,
+                          smoothing, offset, offset_stride, scale, scale_stride, out,
+                          scratch);
 }
 
 std::size_t preprocess_waveforms_scratch_size(int n_samples, int upsampling,
