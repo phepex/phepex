@@ -218,7 +218,8 @@ generate_waveforms(nb::ndarray<const double, nb::ndim<2>, nb::c_contig> charge,
                    nb::ndarray<const double, nb::ndim<2>, nb::c_contig> time_ns,
                    nb::ndarray<const double, nb::ndim<1>, nb::c_contig> reference_pulse,
                    double ref_sample_width_ns, double sample_width_ns, int n_samples,
-                   int upsampling, double nsb_rate_ghz, std::uint64_t seed) {
+                   int upsampling, double nsb_rate_ghz, double electronic_noise,
+                   std::uint64_t seed) {
     const int n_events = static_cast<int>(charge.shape(0));
     const int n_pix = static_cast<int>(charge.shape(1));
     if (time_ns.shape(0) != charge.shape(0) || time_ns.shape(1) != charge.shape(1))
@@ -227,7 +228,7 @@ generate_waveforms(nb::ndarray<const double, nb::ndim<2>, nb::c_contig> charge,
     phepex::generate_waveforms(
         charge.data(), time_ns.data(), n_events, n_pix, reference_pulse.data(),
         static_cast<int>(reference_pulse.shape(0)), ref_sample_width_ns, sample_width_ns,
-        n_samples, upsampling, nsb_rate_ghz, seed, out);
+        n_samples, upsampling, nsb_rate_ghz, electronic_noise, seed, out);
     std::size_t shape[3] = {static_cast<std::size_t>(n_events),
                             static_cast<std::size_t>(n_pix),
                             static_cast<std::size_t>(n_samples)};
@@ -283,9 +284,12 @@ NB_MODULE(_core, m) {
         "generate_waveforms", &generate_waveforms, nb::arg("charge"), nb::arg("time_ns"),
         nb::arg("reference_pulse"), nb::arg("ref_sample_width_ns"),
         nb::arg("sample_width_ns"), nb::arg("n_samples"), nb::arg("upsampling") = 10,
-        nb::arg("nsb_rate_ghz") = 0.0, nb::arg("seed") = 0,
+        nb::arg("nsb_rate_ghz") = 0.0, nb::arg("electronic_noise") = 0.0,
+        nb::arg("seed") = 0,
         R"doc(Synthesize (n_events, n_pixels, n_samples) float32 waveforms from per-pixel
-(charge, peak_time): a physically-placed signal deposit plus Poisson NSB. Matches ctapipe
+(charge, peak_time): a physically-placed signal deposit plus Poisson NSB and zero-mean
+Gaussian electronic noise of `electronic_noise` per sample (0 disables it and draws no
+random numbers). Matches ctapipe
 WaveformModel for deposits inside the readout window, but is physically correct at the
 edges (floor-snapped deposit time, and pulses centred just outside the window still
 contribute their in-window tail rather than being dropped as WaveformModel does).)doc");
