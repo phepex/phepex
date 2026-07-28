@@ -174,7 +174,7 @@ TEST_CASE("generate_waveforms: charge conservation, zero, reproducibility, NSB r
         std::vector<double> ch = {100.0}, tm = {static_cast<double>(n / 2) * sw};
         std::vector<float> out(n);
         phepex::generate_waveforms(ch.data(), tm.data(), 1, 1, ref.data(),
-                                   (int)ref.size(), ref_sw, sw, n, up, 0.0, 0,
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.0, 0.0, 0,
                                    out.data());
         double integ = std::accumulate(out.begin(), out.end(), 0.0);
         REQUIRE(integ == Approx(100.0).margin(0.5));
@@ -184,7 +184,7 @@ TEST_CASE("generate_waveforms: charge conservation, zero, reproducibility, NSB r
         std::vector<double> z0 = {0.0}, zt = {0.0};
         std::vector<float> zout(n);
         phepex::generate_waveforms(z0.data(), zt.data(), 1, 1, ref.data(),
-                                   (int)ref.size(), ref_sw, sw, n, up, 0.0, 0,
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.0, 0.0, 0,
                                    zout.data());
         for (float v : zout)
             REQUIRE(v == 0.0f);
@@ -195,9 +195,9 @@ TEST_CASE("generate_waveforms: charge conservation, zero, reproducibility, NSB r
         std::vector<double> ch(ne * np, 0.0), tm(ne * np, 0.0);
         std::vector<float> a(ne * np * n), b(ne * np * n);
         phepex::generate_waveforms(ch.data(), tm.data(), ne, np, ref.data(),
-                                   (int)ref.size(), ref_sw, sw, n, up, 0.5, 42, a.data());
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.5, 0.0, 42, a.data());
         phepex::generate_waveforms(ch.data(), tm.data(), ne, np, ref.data(),
-                                   (int)ref.size(), ref_sw, sw, n, up, 0.5, 42, b.data());
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.5, 0.0, 42, b.data());
         REQUIRE(a == b);
     }
 
@@ -207,13 +207,75 @@ TEST_CASE("generate_waveforms: charge conservation, zero, reproducibility, NSB r
         std::vector<float> out(static_cast<std::size_t>(ne) * np * n);
         const double rate = 0.5;
         phepex::generate_waveforms(ch.data(), tm.data(), ne, np, ref.data(),
-                                   (int)ref.size(), ref_sw, sw, n, up, rate, 1,
+                                   (int)ref.size(), ref_sw, sw, n, up, rate, 0.0, 1,
                                    out.data());
         double tot = 0.0;
         for (float v : out)
             tot += v;
         const double mean_per_pixel = tot / (static_cast<double>(ne) * np);
         REQUIRE(mean_per_pixel == Approx(rate * n * sw).epsilon(0.02));
+    }
+
+    SECTION("electronic noise: zero-mean, sigma reproduced, additive on the signal") {
+        const int ne = 50, np = 200;
+        const double sigma = 0.3;
+        std::vector<double> ch(static_cast<std::size_t>(ne) * np, 0.0),
+            tm(static_cast<std::size_t>(ne) * np, 0.0);
+        std::vector<float> out(static_cast<std::size_t>(ne) * np * n);
+        phepex::generate_waveforms(ch.data(), tm.data(), ne, np, ref.data(),
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.0, sigma, 7,
+                                   out.data());
+        double sum = 0.0, sq = 0.0;
+        for (float v : out) {
+            sum += v;
+            sq += static_cast<double>(v) * v;
+        }
+        const double count = static_cast<double>(out.size());
+        const double mean = sum / count;
+        // 8e5 samples of sigma 0.3 => standard error 3.4e-4, so 5e-3 is ~15 sigma.
+        REQUIRE(std::fabs(mean) < 5e-3);
+        REQUIRE(std::sqrt(sq / count - mean * mean) == Approx(sigma).epsilon(0.02));
+
+        // Noise is drawn after the signal deposit, so it only displaces the samples: the
+        // difference against the noiseless output has the noise statistics, and the signal
+        // integral survives.
+        std::vector<double> sch(np, 100.0), stm(np, static_cast<double>(n / 2) * sw);
+        std::vector<float> quiet(np * n), noisy(np * n);
+        phepex::generate_waveforms(sch.data(), stm.data(), 1, np, ref.data(),
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.0, 0.0, 7,
+                                   quiet.data());
+        phepex::generate_waveforms(sch.data(), stm.data(), 1, np, ref.data(),
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.0, sigma, 7,
+                                   noisy.data());
+        double dsq = 0.0, quiet_integ = 0.0, noisy_integ = 0.0;
+        for (std::size_t i = 0; i < quiet.size(); i++) {
+            const double d = static_cast<double>(noisy[i]) - quiet[i];
+            dsq += d * d;
+            quiet_integ += quiet[i];
+            noisy_integ += noisy[i];
+        }
+        REQUIRE(std::sqrt(dsq / static_cast<double>(quiet.size())) ==
+                Approx(sigma).epsilon(0.05));
+        REQUIRE(noisy_integ == Approx(quiet_integ).epsilon(0.01));
+    }
+
+    SECTION("electronic noise: reproducible per seed, and rejected when negative") {
+        const int np = 32;
+        std::vector<double> ch(np, 0.0), tm(np, 0.0);
+        std::vector<float> a(np * n), b(np * n), c(np * n);
+        phepex::generate_waveforms(ch.data(), tm.data(), 1, np, ref.data(), (int)ref.size(),
+                                   ref_sw, sw, n, up, 0.0, 0.5, 3, a.data());
+        phepex::generate_waveforms(ch.data(), tm.data(), 1, np, ref.data(), (int)ref.size(),
+                                   ref_sw, sw, n, up, 0.0, 0.5, 3, b.data());
+        phepex::generate_waveforms(ch.data(), tm.data(), 1, np, ref.data(), (int)ref.size(),
+                                   ref_sw, sw, n, up, 0.0, 0.5, 4, c.data());
+        REQUIRE(a == b);
+        REQUIRE(a != c);
+
+        REQUIRE_THROWS_AS(phepex::generate_waveforms(ch.data(), tm.data(), 1, np,
+                                                     ref.data(), (int)ref.size(), ref_sw,
+                                                     sw, n, up, 0.0, -1.0, 0, a.data()),
+                          std::invalid_argument);
     }
 }
 
@@ -289,6 +351,26 @@ TEST_CASE("generate_shower_image: intensity, time model, reproducibility", "[gen
         REQUIRE(max_dev <= m.time_jitter_ns);
         // With thousands of pixels the jitter must actually populate its range.
         REQUIRE(max_dev > 0.9 * m.time_jitter_ns);
+    }
+
+    SECTION("photon_statistics == false: rounded expectation, seed-independent") {
+        PixelGrid grid(0.05, 1.0);
+        auto model = test_shower();
+        model.photon_statistics = false;
+        std::vector<double> q1(grid.size()), t1(grid.size()), q2(grid.size()),
+            t2(grid.size());
+        phepex::generate_shower_image(model, grid.x.data(), grid.y.data(), grid.size(),
+                                      grid.area, 1, q1.data(), t1.data());
+        phepex::generate_shower_image(model, grid.x.data(), grid.y.data(), grid.size(),
+                                      grid.area, 999, q2.data(), t2.data());
+        REQUIRE(q1 == q2);  // consumes no random numbers for the charge
+        for (double q : q1)
+            REQUIRE(q == std::round(q));
+        // Rounding sheds the sub-0.5 tail, so the total falls short of intensity_pe; it
+        // must still recover the bulk of it.
+        const double total = std::accumulate(q1.begin(), q1.end(), 0.0);
+        REQUIRE(total > 0.7 * model.intensity_pe);
+        REQUIRE(total <= model.intensity_pe);
     }
 
     SECTION("same seed -> identical image, different seed -> different charges") {

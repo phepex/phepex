@@ -291,7 +291,8 @@ int main(int argc, char **argv) {
     phepex::generate_waveforms(
         q.data(), tns.data(), /*n_events=*/1, num_pixels, cfg.reference_pulse.data(),
         static_cast<int>(cfg.reference_pulse.size()), cfg.ref_sample_width_ns,
-        sample_width_ns, num_samples, gen_up, nsb_rate_ghz, /*seed=*/42, amp.data());
+        sample_width_ns, num_samples, gen_up, nsb_rate_ghz, /*electronic_noise=*/0.0,
+        /*seed=*/42, amp.data());
     std::vector<std::uint16_t> raw(static_cast<size_t>(num_pixels) * num_samples);
     for (size_t i = 0; i < raw.size(); i++) {
         const long adc = std::lround(pedestal_lsb + spe_integral_lsb * amp[i]);
@@ -548,7 +549,7 @@ int main(int argc, char **argv) {
                 q.data(), tns.data(), /*n_events=*/1, num_pixels,
                 cfg.reference_pulse.data(), static_cast<int>(cfg.reference_pulse.size()),
                 cfg.ref_sample_width_ns, sample_width_ns, num_samples, gen_up,
-                nsb_rate_ghz, seed++, out.data());
+                nsb_rate_ghz, /*electronic_noise=*/0.0, seed++, out.data());
             return std::pair<int, double>{1, static_cast<double>(out[num_samples / 2])};
         });
     }

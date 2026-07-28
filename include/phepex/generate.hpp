@@ -15,7 +15,8 @@ namespace phepex {
 /// Synthesize sampled waveforms from per-pixel (charge, peak_time): for the signal
 /// component, each pixel's charge is deposited at its sub-sample peak time and convolved
 /// with the reference pulse shape; a temporally-distributed Poisson night-sky-background
-/// (NSB) process at nsb_rate_ghz is added on top. Intended as a fast generator
+/// (NSB) process at nsb_rate_ghz and uncorrelated Gaussian electronic noise of
+/// electronic_noise per sample are added on top. Intended as a fast generator
 /// for testing/benchmarking extractors.
 ///
 /// @param charge          (n_events, n_pix) float64 photo-electron charge per pixel
@@ -25,14 +26,22 @@ namespace phepex {
 /// @param sample_width_ns      readout sample width (ns) = 1 / sampling_rate
 /// @param upsampling      internal upsampling used to place sub-sample deposits (e.g. 10)
 /// @param nsb_rate_ghz    NSB rate in GHz (0 disables NSB)
+/// @param electronic_noise standard deviation of the zero-mean Gaussian noise added
+///                        independently to every output sample, in the units of `out`
+///                        (p.e. of pulse integral per readout sample). 0 disables it and
+///                        consumes no random numbers, leaving the output bit-identical to
+///                        a build without noise. Must be >= 0.
 /// @param seed            RNG seed (per-event deterministic)
 /// @param out             caller-allocated n_events*n_pix*n_samples float32,
 ///                        row-major (n_events, n_pix, n_samples)
+///
+/// Throws std::invalid_argument if `electronic_noise < 0` (a negative standard deviation
+/// is silently indistinguishable from a noiseless camera otherwise).
 void generate_waveforms(const double *charge, const double *time_ns, int n_events,
                         int n_pix, const double *reference_pulse, int n_ref,
                         double ref_sample_width_ns, double sample_width_ns, int n_samples,
-                        int upsampling, double nsb_rate_ghz, std::uint64_t seed,
-                        float *out);
+                        int upsampling, double nsb_rate_ghz, double electronic_noise,
+                        std::uint64_t seed, float *out);
 
 /// Parameters of a single artificial shower image, in camera-plane metres / radians / ns.
 struct ShowerModel {
@@ -47,12 +56,19 @@ struct ShowerModel {
     double time_gradient_ns_per_m = 0;  ///< d(peak time) / d(longitudinal distance)
     double time_intercept_ns = 0;       ///< peak time at the centroid
     double time_jitter_ns = 0;  ///< half-width of the uniform per-pixel time jitter
+    bool photon_statistics = true;  ///< draw each pixel's charge from a Poisson
+                                    ///< distribution around its expectation; with `false`
+                                    ///< the expectation is rounded to the nearest integer
+                                    ///< instead, which yields a smooth, hole-free image
+                                    ///< (the level set of a pdf) and consumes no random
+                                    ///< numbers for the charge
 };
 
 /// Fill per-pixel (charge, time_ns) for one artificial shower image, as input for
 /// generate_waveforms().
 ///
-/// Charges are Poisson draws around `intensity_pe * pdf(x, y) * pixel_area_m2`, where pdf
+/// Charges are Poisson draws around `intensity_pe * pdf(x, y) * pixel_area_m2` (or that
+/// expectation rounded to the nearest integer, if `photon_statistics == false`), where pdf
 /// is a Gaussian of sigma `width_m` in the transverse coordinate times a skew-normal of
 /// scale/location derived from (`length_m`, `skewness`) in the longitudinal one. Times
 /// are linear in the longitudinal coordinate plus jitter drawn from

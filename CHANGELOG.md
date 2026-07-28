@@ -74,6 +74,15 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
   published.
 
 ### Added
+- `generate_waveforms` takes an `electronic_noise` parameter (C++ positional, between
+  `nsb_rate_ghz` and `seed`; Python keyword `electronic_noise`, default `0.0`): the
+  standard deviation of zero-mean Gaussian noise added independently to every output
+  sample, in the units of `out` (p.e. of pulse integral per readout sample). It models
+  uncorrelated readout/digitisation noise, which the Poisson NSB process cannot represent.
+  The draws come last within each pixel from the same per-event RNG stream, so the signal
+  and NSB draws are unaffected; `electronic_noise == 0` consumes no random numbers and
+  reproduces earlier output bit-for-bit. Negative values raise `std::invalid_argument`/
+  `ValueError` rather than silently disabling the noise.
 - `phepex::preprocess_waveforms` (C++, `<phepex/preprocess.hpp>`): batched form of
   `preprocess_waveform` that applies the kernel to `n_rows` consecutive waveforms in one call.
   `pole_zero`, `offset` and `scale` are read per row as `array[row * stride]` (stride `0`

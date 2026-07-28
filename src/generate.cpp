@@ -259,8 +259,11 @@ inline void deposit(double *buf, long base, const double *g, int klen, double v)
 void generate_waveforms(const double *charge, const double *time_ns, int n_events,
                         int n_pix, const double *reference_pulse, int n_ref,
                         double ref_sample_width_ns, double sample_width_ns, int n_samples,
-                        int upsampling, double nsb_rate_ghz, std::uint64_t seed,
-                        float *out) {
+                        int upsampling, double nsb_rate_ghz, double electronic_noise,
+                        std::uint64_t seed, float *out) {
+    if (!(electronic_noise >= 0.0))
+        throw std::invalid_argument("generate_waveforms: electronic_noise must be >= 0");
+
     const PhaseKernels pk(reference_pulse, static_cast<std::size_t>(n_ref),
                           ref_sample_width_ns, sample_width_ns, upsampling);
     const int pad = pk.pad;
@@ -280,10 +283,18 @@ void generate_waveforms(const double *charge, const double *time_ns, int n_event
     // once and reset() its cached state per event (equivalent to a fresh distribution, so
     // the per-event draws stay bit-identical while avoiding repeated setup).
     std::poisson_distribution<int> nsb_pois(nsb_mean);
+    // Electronic noise shares the per-event RNG stream and is drawn last within each
+    // pixel, so switching it on leaves the signal and NSB draws unchanged. Like nsb_pois,
+    // it caches state (a second normal deviate) that must not leak across events.
+    // (std::normal_distribution requires a strictly positive sigma, hence the placeholder
+    // for the disabled case; it is never drawn from.)
+    std::normal_distribution<double> noise(0.0,
+                                           electronic_noise > 0.0 ? electronic_noise : 1.0);
     for (std::size_t e = 0; e < static_cast<std::size_t>(n_events); ++e) {
         // Deterministic per-event RNG so results are reproducible & event-independent.
         Xoshiro256pp rng(seed + 0x9e3779b97f4a7c15ULL * (e + 1));
         nsb_pois.reset();
+        noise.reset();
 
         for (std::size_t pix = 0; pix < static_cast<std::size_t>(n_pix); ++pix) {
             std::fill(buf.begin(), buf.end(), 0.0);
@@ -326,10 +337,15 @@ void generate_waveforms(const double *charge, const double *time_ns, int n_event
                 }
             }
 
-            // crop away the guard + padding into the output
+            // crop away the guard + padding into the output, adding electronic noise per
+            // readout sample (drawn after the signal and NSB deposits, cf. above)
             float *dst = out + (e * n_pix + pix) * n_samples;
-            for (int n = 0; n < n_samples; ++n)
-                dst[n] = static_cast<float>(buf[guard + pad + n]);
+            if (electronic_noise > 0.0)
+                for (int n = 0; n < n_samples; ++n)
+                    dst[n] = static_cast<float>(buf[guard + pad + n] + noise(rng));
+            else
+                for (int n = 0; n < n_samples; ++n)
+                    dst[n] = static_cast<float>(buf[guard + pad + n]);
         }
     }
 }
@@ -370,10 +386,14 @@ void generate_shower_image(const ShowerModel &model, const double *pix_x,
                                 longitudinal.pdf(lon) * norm_pdf(trans / model.width_m) /
                                 model.width_m;
         // Underflows to 0 many sigma out; skip the draw there (Poisson(0) == 0).
-        charge[p] = expected > 0.0
-                        ? static_cast<double>(pois(
-                              rng, std::poisson_distribution<int>::param_type(expected)))
-                        : 0.0;
+        if (!model.photon_statistics)
+            charge[p] = std::round(expected);
+        else
+            charge[p] = expected > 0.0
+                            ? static_cast<double>(pois(
+                                  rng,
+                                  std::poisson_distribution<int>::param_type(expected)))
+                            : 0.0;
 
         const double jitter = model.time_jitter_ns > 0.0
                                   ? model.time_jitter_ns * (2.0 * uniform01(rng) - 1.0)
