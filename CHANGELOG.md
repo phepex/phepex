@@ -9,6 +9,15 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
 
 ## [Unreleased]
 
+### Changed
+- Documentation and docstrings revised for accuracy and consistency across the README, the
+  Sphinx pages, the C++ header comments and the Python/binding docstrings.
+
+### Added
+- Introductory slide deck (`docs/slides/phepex-intro.typ`, [Typst](https://typst.app)): eight
+  slides on where phepex sits relative to libdvr and ctapipe, the kernels it exposes, and the
+  0.2.0 benchmark figures.
+
 ## [0.2.0] - 2026-07-28
 
 ### Changed

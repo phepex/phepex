@@ -8,3 +8,5 @@ docs/_doxygen/
 docs/Doxyfile
 include/phepex/version.hpp
 wheelhouse/
+docs/slides/*.pdf
+docs/_static/slides/

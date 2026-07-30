@@ -1,0 +1,113 @@
+/* In-page viewer for the Typst slide deck (see docs/slides.md, slides-viewer.js).
+ *
+ * The slides carry their own white background and accent colours, so they are framed rather
+ * than recoloured: inverting them in furo's dark theme would misrender the logo and the
+ * accent fills. The frame and controls follow the theme; the slide itself does not. */
+
+.phepex-deck {
+  margin: 1.5rem 0;
+}
+
+/* The `display` rules below are author-level and would otherwise beat the user agent's
+ * `[hidden] { display: none }`, leaving the controls visible without JavaScript and a broken
+ * image when no SVGs were exported. Class+attribute outranks the bare class, so this needs
+ * no !important. */
+.phepex-deck [hidden] {
+  display: none;
+}
+
+.phepex-deck-stage {
+  display: block;
+  width: 100%;
+  /* Reserve the box before the first SVG loads, so advancing never shifts the page. */
+  aspect-ratio: 16 / 9;
+  background: #fff;
+  border: 1px solid var(--color-background-border);
+  border-radius: 6px;
+  /* The deck is keyboard-operable, so it must show where focus is. */
+  outline-offset: 2px;
+}
+
+.phepex-deck-stage:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+}
+
+/* Click-to-advance only makes sense once the script is driving the deck. */
+.phepex-deck[data-ready="1"] .phepex-deck-stage {
+  cursor: pointer;
+}
+
+.phepex-deck-stage:fullscreen {
+  aspect-ratio: auto;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  object-fit: contain;
+}
+
+.phepex-deck-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.5rem;
+  font-size: var(--font-size--small);
+}
+
+.phepex-deck-bar button {
+  min-width: 2.2rem;
+  padding: 0.15rem 0.5rem;
+  color: var(--color-foreground-primary);
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-background-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.6;
+}
+
+.phepex-deck-bar button:hover {
+  border-color: var(--color-brand-primary);
+}
+
+.phepex-deck-position {
+  min-width: 4.5rem;
+  text-align: center;
+  color: var(--color-foreground-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Shown only when no SVGs were exported; the script reveals it in that case. */
+.phepex-deck-unavailable {
+  color: var(--color-foreground-secondary);
+  font-size: var(--font-size--small);
+}
+
+/* The slide outline: the deck's text alternative, collapsed by default so it does not
+ * restate the slides to a reader who can see them. A plain <details> rather than a
+ * `:class: dropdown` admonition, which furo renders as an ordinary open block, and rather
+ * than a sphinx-design directive, which would add a dependency for one disclosure. Closing
+ * it hides nothing from Sphinx search or from slides-viewer.js: both read the text from the
+ * document, not from what is painted. */
+.phepex-deck-outline-details {
+  margin: 1rem 0;
+  padding: 0.4rem 0.75rem;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-background-border);
+  border-radius: 6px;
+  font-size: var(--font-size--small);
+}
+
+.phepex-deck-outline-details > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.phepex-deck-outline-details[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
+.phepex-deck-outline-details > summary:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}

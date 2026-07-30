@@ -5,6 +5,7 @@
 :end-before: <!-- intro:end -->
 ```
 
+- [Introduction slides](slides) — a 9-slide overview of what phepex is and where it fits.
 - [Getting started](getting-started) — how to build, install and consume each side.
 - [C++ API](cpp/index) — the `phepex::` kernels, rendered from the public headers.
 - [Python API](python/index) — the `phepex` package: numpy kernel wrappers and the
@@ -18,6 +19,7 @@ The search box (top-left) covers symbols of both languages; the version switcher
 :hidden:
 :maxdepth: 2
 
+slides
 getting-started
 cpp/index
 python/index
