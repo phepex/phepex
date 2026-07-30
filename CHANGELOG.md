@@ -9,6 +9,8 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-30
+
 ### Changed
 - Documentation and docstrings revised for accuracy and consistency across the README, the
   Sphinx pages, the C++ header comments and the Python/binding docstrings.
@@ -215,6 +217,7 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
 - Unified Sphinx documentation covering the C++ (Doxygen + Breathe) and Python (autodoc)
   API surfaces, published to GitHub Pages.
 
-[Unreleased]: https://github.com/phepex/phepex/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/phepex/phepex/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/phepex/phepex/releases/tag/v0.2.1
 [0.2.0]: https://github.com/phepex/phepex/releases/tag/v0.2.0
 [0.1.0]: https://github.com/phepex/phepex/releases/tag/v0.1.0
