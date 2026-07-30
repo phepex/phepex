@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 180 180" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <rect id="phepex-icon-dark" x="0" y="0" width="180" height="180" style="fill:none;"/>
+    <g>
+        <path id="Pulse-fill" serif:id="Pulse fill" d="M25.311,126.951L49.311,126.951L49.311,103.986L61.311,103.986L61.311,69.54L73.311,69.54L73.311,40.835L85.311,40.835L85.311,58.058L97.311,58.058L97.311,83.893L109.311,83.893L109.311,103.986L121.311,103.986L121.311,115.468L133.311,115.468L133.311,121.21L155.311,121.21L155.311,124.285L89.311,164L25.311,126.951Z" style="fill:rgb(18,11,40);fill-rule:nonzero;"/>
+        <path id="Pulse" d="M25.311,127L49.311,127L49.311,104.023L61.311,104.023L61.311,69.556L73.311,69.556L73.311,40.835L85.311,40.835L85.311,58.068L97.311,58.068L97.311,83.917L109.311,83.917L109.311,104.023L121.311,104.023L121.311,115.511L133.311,115.511L133.311,121.256L155.311,121.256L155.311,127" style="fill:none;fill-rule:nonzero;stroke:rgb(157,134,222);stroke-width:3.33px;"/>
+        <path id="Hexagon" d="M89.311,15L154.262,52.5L154.262,127.5L89.311,165L24.359,127.5L24.359,52.5L89.311,15Z" style="fill:none;stroke:rgb(157,134,222);stroke-width:8px;stroke-linecap:round;stroke-miterlimit:1.5;"/>
+    </g>
+</svg>
