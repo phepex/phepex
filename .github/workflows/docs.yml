@@ -68,6 +68,21 @@ jobs:
       - name: Install documentation dependencies
         run: pip install -r docs/requirements.txt
 
+      - name: Fetch the Fira faces used by the slide deck
+        # Typst bundles no Fira and substitutes a serif face SILENTLY when it is missing, so
+        # without this the published deck renders in Libertinus Serif. Debian/Ubuntu package
+        # neither family (fonts-firacode is Fira Code), hence the direct fetch of the five
+        # faces docs/slides/phepex-intro.typ uses (~1 MB). See docs/slides/README.md.
+        # Non-fatal: a font fetch must not block an API-documentation deploy.
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/fira"
+          base=https://raw.githubusercontent.com/mozilla/Fira/4.202/otf
+          for f in FiraSans-Regular FiraSans-Bold FiraMono-Regular FiraMono-Medium FiraMono-Bold; do
+            curl -sSfL --retry 3 -o "$RUNNER_TEMP/fira/$f.otf" "$base/$f.otf"
+          done
+          echo "TYPST_FONT_PATHS=$RUNNER_TEMP/fira" >> "$GITHUB_ENV"
+
       - name: Build the documentation
         env:
           PHEPEX_DOC_VERSION: ${{ env.SLUG }}
