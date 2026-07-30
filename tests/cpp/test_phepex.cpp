@@ -195,9 +195,11 @@ TEST_CASE("generate_waveforms: charge conservation, zero, reproducibility, NSB r
         std::vector<double> ch(ne * np, 0.0), tm(ne * np, 0.0);
         std::vector<float> a(ne * np * n), b(ne * np * n);
         phepex::generate_waveforms(ch.data(), tm.data(), ne, np, ref.data(),
-                                   (int)ref.size(), ref_sw, sw, n, up, 0.5, 0.0, 42, a.data());
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.5, 0.0, 42,
+                                   a.data());
         phepex::generate_waveforms(ch.data(), tm.data(), ne, np, ref.data(),
-                                   (int)ref.size(), ref_sw, sw, n, up, 0.5, 0.0, 42, b.data());
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.5, 0.0, 42,
+                                   b.data());
         REQUIRE(a == b);
     }
 
@@ -237,8 +239,8 @@ TEST_CASE("generate_waveforms: charge conservation, zero, reproducibility, NSB r
         REQUIRE(std::sqrt(sq / count - mean * mean) == Approx(sigma).epsilon(0.02));
 
         // Noise is drawn after the signal deposit, so it only displaces the samples: the
-        // difference against the noiseless output has the noise statistics, and the signal
-        // integral survives.
+        // difference against the noiseless output has the noise statistics, and the
+        // signal integral survives.
         std::vector<double> sch(np, 100.0), stm(np, static_cast<double>(n / 2) * sw);
         std::vector<float> quiet(np * n), noisy(np * n);
         phepex::generate_waveforms(sch.data(), stm.data(), 1, np, ref.data(),
@@ -263,12 +265,15 @@ TEST_CASE("generate_waveforms: charge conservation, zero, reproducibility, NSB r
         const int np = 32;
         std::vector<double> ch(np, 0.0), tm(np, 0.0);
         std::vector<float> a(np * n), b(np * n), c(np * n);
-        phepex::generate_waveforms(ch.data(), tm.data(), 1, np, ref.data(), (int)ref.size(),
-                                   ref_sw, sw, n, up, 0.0, 0.5, 3, a.data());
-        phepex::generate_waveforms(ch.data(), tm.data(), 1, np, ref.data(), (int)ref.size(),
-                                   ref_sw, sw, n, up, 0.0, 0.5, 3, b.data());
-        phepex::generate_waveforms(ch.data(), tm.data(), 1, np, ref.data(), (int)ref.size(),
-                                   ref_sw, sw, n, up, 0.0, 0.5, 4, c.data());
+        phepex::generate_waveforms(ch.data(), tm.data(), 1, np, ref.data(),
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.0, 0.5, 3,
+                                   a.data());
+        phepex::generate_waveforms(ch.data(), tm.data(), 1, np, ref.data(),
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.0, 0.5, 3,
+                                   b.data());
+        phepex::generate_waveforms(ch.data(), tm.data(), 1, np, ref.data(),
+                                   (int)ref.size(), ref_sw, sw, n, up, 0.0, 0.5, 4,
+                                   c.data());
         REQUIRE(a == b);
         REQUIRE(a != c);
 
@@ -419,14 +424,12 @@ TEST_CASE("generate_shower_image: intensity, time model, reproducibility", "[gen
 }
 
 // preprocess_waveform / preprocess_valid_range: bit-exact against a FROZEN copy of
-// libdvr's original DSP kernels (the extraction oracle). If phepex's kernels ever drift
-// from libdvr's math, these fail. The reference code below is a verbatim copy of libdvr's
-// src/DSP.cpp as of the extraction and must NOT be "cleaned up", with ONE deliberate
-// exception: the upsampling == 1 path applies the pole-zero correction (see
-// refDeconvolveUnit). libdvr's original DSP.cpp skipped pole-zero at upsampling == 1 (it
-// computed scale*(src-offset)); phepex fixes that latent bug in preprocess_waveform, so
-// the oracle is patched identically here to keep the bit-exact comparison meaningful. The
-// oracle remains a faithful libdvr snapshot for upsampling > 1.
+// libdvr's DSP kernels (the oracle), so that any divergence from libdvr's math fails
+// here. The reference code below is a verbatim copy of libdvr's src/DSP.cpp and must NOT
+// be "cleaned up", with ONE deliberate exception: refDeconvolveUnit applies the pole-zero
+// correction at upsampling == 1, where libdvr's DSP.cpp computes scale*(src-offset)
+// instead. phepex applies the correction there, so the oracle is patched identically to
+// keep the bit-exact comparison meaningful; for upsampling > 1 it is unmodified.
 namespace {
 
 template <typename InputType, typename OutputType>

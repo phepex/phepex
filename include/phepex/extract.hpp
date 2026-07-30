@@ -13,12 +13,16 @@
 namespace phepex {
 
 /// Window integration + amplitude-weighted peak time, per (channel, pixel). Sums the
-/// waveform over [peak-shift, peak-shift+width) (clamped to the trace) and computes the
-/// amplitude-weighted centroid over strictly-positive samples, in ns (divided by
-/// sampling_rate_ghz). float64 accumulation; float32 outputs.
+/// waveform over [peak-shift, peak-shift+width) (clamped to [0, n_up)) and computes the
+/// amplitude-weighted index centroid over the strictly-positive samples of that window,
+/// converted to ns by dividing by sampling_rate_ghz. Falls back to `peak_index` itself
+/// when the window holds no positive sample. float64 accumulation; float32 outputs.
 ///
 /// @param waveforms   input (n_ch, n_pix, n_up) float32
 /// @param peak_index  (n_ch, n_pix) int64 peak sample index per pixel
+/// @param width       window length in samples
+/// @param shift       samples the window starts before the peak
+/// @param sampling_rate_ghz  sample rate of `waveforms`, i.e. including any upsampling
 /// @param charge      caller-allocated n_ch*n_pix float32 (integrated charge)
 /// @param peak_time   caller-allocated n_ch*n_pix float32 (peak time, ns)
 void extract_around_peak(const float *waveforms, int n_ch, int n_pix, int n_up,
@@ -26,12 +30,15 @@ void extract_around_peak(const float *waveforms, int n_ch, int n_pix, int n_up,
                          double sampling_rate_ghz, float *charge, float *peak_time);
 
 /// Leading-edge weighted centroid (in sample units), per (channel, pixel): walks left
-/// then right from peak while samples exceed rel_descend_limit*peak_amplitude,
-/// accumulating an amplitude-weighted index centroid. float64 accumulation; float32
-/// output.
+/// then right from the peak while samples exceed rel_descend_limit*waveforms[peak],
+/// accumulating an amplitude-weighted index centroid. The threshold is fixed at the
+/// initial peak amplitude and not re-derived if a larger sample is met. Falls back to
+/// `peak_index` itself when it lies outside [0, n_up), the peak amplitude is negative, or
+/// the accumulated weight is 0. float64 accumulation; float32 output.
 ///
 /// @param waveforms   input (n_ch, n_pix, n_up) float32
 /// @param peak_index  (n_ch, n_pix) int64 peak sample index per pixel
+/// @param rel_descend_limit  threshold as a fraction of the peak amplitude
 /// @param centroids   caller-allocated n_ch*n_pix float32 (centroid, sample units)
 void adaptive_centroid(const float *waveforms, int n_ch, int n_pix, int n_up,
                        const std::int64_t *peak_index, double rel_descend_limit,

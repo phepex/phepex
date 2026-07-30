@@ -13,7 +13,7 @@ kernel is already validated bit-for-bit against the frozen libdvr oracle in
 the scalar/per-pixel broadcasting of ``pole_zero``/``baseline``/``scale``, shape/dtype of
 the result, and the valid-range formula.
 
-``deconvolve`` is now a thin wrapper over ``preprocess`` (smoothing disabled), so
+``deconvolve`` is a thin wrapper over ``preprocess`` (smoothing disabled), so
 ``preprocess(..., smoothing_fwhm=0)`` and ``deconvolve`` share the same kernel; the
 cross-checks here assert that equivalence.
 """
@@ -84,7 +84,7 @@ def test_upsampling_one_no_smoothing_is_scale_minus_baseline():
 
 
 def test_upsampling_one_applies_pole_zero():
-    """upsampling=1 applies the pole-zero correction (regression: it was skipped).
+    """upsampling=1 applies the pole-zero correction.
 
     Independent numpy reference of the closed form the kernel computes at up==1:
     out[0] = scale*(wf[0]-baseline); out[i] = scale*((wf[i]-baseline) -

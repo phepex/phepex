@@ -1,8 +1,6 @@
 # Getting started
 
 phepex is a C++17 library with optional Python bindings. The two can be used independently.
-The build/usage snippets below are the same ones shown in the project README, kept in sync
-from a single source.
 
 ## C++ library
 

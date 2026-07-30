@@ -1,8 +1,7 @@
 # Python API
 
 The `phepex` package: numpy kernel wrappers, the C++ waveform generator, and the
-ctapipe-integrated `FastFlashCamExtractor`. The package overview below is rendered from the
-package docstring.
+ctapipe-integrated `FastFlashCamExtractor`.
 
 ## Package overview
 
@@ -22,7 +21,7 @@ numpy (no ctapipe).
 
 ## Waveform generator
 
-The generator is implemented in C++ and exported at the package top level.
+Implemented in C++ and re-exported at the package top level from `phepex._core`.
 
 ```{eval-rst}
 .. autofunction:: phepex.generate_waveforms

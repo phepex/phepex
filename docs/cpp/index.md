@@ -1,18 +1,14 @@
 # C++ API
 
 The public `phepex::` kernels, grouped by header. Include everything via the umbrella header
-`<phepex/phepex.hpp>`, or a single header for one kernel. Each function's description below is
-rendered from its own header documentation.
+`<phepex/phepex.hpp>`, or a single header for one kernel.
 
 ## Waveform preprocessing
 
-Declared in `<phepex/preprocess.hpp>`. Single-waveform upsampling + pole-zero deconvolution
-with optional Deriche (1992) Gaussian smoothing, plus its DVR-convention valid range.
-Pole-zero deconvolution without smoothing is just `preprocess_waveform` with
-`smoothing == nullptr`. `preprocess_waveforms` applies the same operation to a batch of rows
-in one call; it tiles the rows (one row per SIMD lane) to fill the loop-carried recurrence
-whenever one is present (the upsampling running sums and/or the Deriche IIR), and its output
-is bit-identical to the per-row form.
+Declared in `<phepex/preprocess.hpp>`: upsampling + pole-zero deconvolution with optional
+Deriche (1992) Gaussian smoothing, per waveform (`preprocess_waveform`) or over a batch of
+rows in one call (`preprocess_waveforms`), plus the valid-sample range of the result. Plain
+pole-zero deconvolution is the `smoothing == nullptr` case.
 
 ```{doxygenstruct} phepex::SampleRange
 :members:

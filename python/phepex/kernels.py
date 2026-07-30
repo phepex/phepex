@@ -66,18 +66,13 @@ __all__ = [
 def deconvolve(waveforms, baselines, upsampling, pole_zero):
     """Pole-zero deconvolution + upsampling.
 
-    Deconvolution is preprocessing without the optional smoothing pass, so this delegates
-    to `preprocess`. Matches ctapipe's ``deconvolve`` in the trustworthy (non-edge)
-    region; see ``deconvolve_valid_range`` for the edge margins.
-
-    ``waveforms`` is (n_channels, n_pix, n_samples) and ``upsampling`` >= 1. ``pole_zero``
-    and ``baselines`` are each independently a scalar, a per-pixel ``(n_pix,)``, or a
-    ``(n_channels, n_pix)`` array (same broadcasting as `preprocess`). Returns float32
-    ``(n_channels, n_pix, n_samples * upsampling)``.
+    Deconvolution is preprocessing without the optional smoothing pass, so this is
+    `preprocess` with ``smoothing_fwhm=0`` (same arguments and broadcasting, with
+    ``baselines`` as ``baseline``). Matches ctapipe's ``deconvolve`` in the trustworthy
+    (non-edge) region; see `deconvolve_valid_range` for the edge margins.
 
     At ``upsampling == 1`` with ``pole_zero == 0`` there is no deconvolution, so every
-    sample is valid (``deconvolve_valid_range`` returns ``lo == 0``). ``upsampling < 1``
-    is rejected by ``preprocess``.
+    sample is valid (`deconvolve_valid_range` returns ``lo == 0``).
     """
     return preprocess(
         waveforms, upsampling, pole_zero, smoothing_fwhm=0.0, baseline=baselines
@@ -105,16 +100,15 @@ def preprocess(
     ``smoothing_fwhm > 0`` a delay-compensated Deriche (1992) IIR pass of that FWHM (in
     upsampled samples) is applied on top; ``0`` or ``None`` disables it.
 
-    ``waveforms`` (n_channels, n_pix, n_samples); ``upsampling`` >= 1
-    (``_core.preprocess`` raises ``ValueError`` otherwise). ``pole_zero``, ``baseline``
-    and ``scale`` are each independently a scalar, a per-pixel ``(n_pix,)`` array, or a
-    full ``(n_channels, n_pix)`` array. Returns float32 (n_channels, n_pix,
-    n_samples*upsampling).
+    ``waveforms`` is (n_channels, n_pix, n_samples); leading axes are prepended if
+    missing. ``upsampling`` >= 1 (``_core.preprocess`` raises ``ValueError`` otherwise).
+    ``pole_zero``, ``baseline`` and ``scale`` are each independently a scalar, a per-pixel
+    ``(n_pix,)`` array, or a full ``(n_channels, n_pix)`` array. Returns float32
+    (n_channels, n_pix, n_samples*upsampling).
 
-    With ``smoothing_fwhm=0`` the result is bit-identical to ``deconvolve`` (same
-    underlying upsample+pole-zero kernel). uint16 input (raw ADC samples) is passed to the
-    kernel's uint16 overload uncopied; every other dtype is cast to float32. uint16 widens
-    to float32 exactly, so both paths give bit-identical results.
+    uint16 input (raw ADC samples) reaches the kernel's uint16 overload uncopied; every
+    other dtype is cast to float32. uint16 widens to float32 exactly, so both paths give
+    bit-identical results.
     """
     wf = _as_3d(waveforms, keep_uint16=True)
     n_ch, n_pix, _ = wf.shape
@@ -129,14 +123,13 @@ def preprocess(
 
 
 def preprocess_valid_range(upsampling, pole_zero, smoothing_fwhm, n_samples):
-    """Trustworthy (non-edge) output-sample range ``[lo, hi)`` of ``preprocess``.
+    """Trustworthy (non-edge) output-sample range ``[lo, hi)`` of `preprocess`.
 
     Depends on ``pole_zero`` only through whether it is nonzero, so a scalar suffices even
-    when ``preprocess`` is called with per-pixel values. ``n_samples`` is the RAW
+    when `preprocess` is called with per-pixel values. ``n_samples`` is the RAW
     (pre-upsample) sample count; the returned bounds index the length
-    ``n_samples*upsampling`` output. ``deconvolve_valid_range`` is the ``smoothing_fwhm ==
-    0`` case of this function and returns an identical range. Returns ``(0, 0)`` if the
-    edge margins exceed ``n_samples*upsampling``.
+    ``n_samples*upsampling`` output. Returns ``(0, 0)`` if the edge margins leave no
+    trustworthy sample.
     """
     return _core.preprocess_valid_range(
         int(upsampling), float(pole_zero), float(smoothing_fwhm or 0.0), int(n_samples)
@@ -144,12 +137,12 @@ def preprocess_valid_range(upsampling, pole_zero, smoothing_fwhm, n_samples):
 
 
 def pos_soft_clip(waveforms, scale, sample_lo=0, sample_hi=0):
-    """Positive soft clip ``max(clip(waveforms/scale), 0)`` over ``[sample_lo, sample_hi)``.
+    """Positive soft clip ``max(y / (1 + |y|), 0)``, ``y = waveforms / scale``.
 
-    ``(0, 0)`` means the full trace. The soft clip already bounds the result to
-    ``(-1, 1)``, so only negatives are clamped (to 0). Equivalent to ctapipe
-    ``FlashCamExtractor.clip(waveforms / scale)``.
-    """  # noqa: E501
+    Applied over ``[sample_lo, sample_hi)``, 0 elsewhere; ``(0, 0)`` means the full trace.
+    The soft clip already bounds the result to ``(-1, 1)``, so only negatives are clamped
+    (to 0). Equivalent to ctapipe ``FlashCamExtractor.clip(waveforms / scale)``.
+    """
     wf = _as_3d(waveforms)
     return _core.pos_soft_clip(wf, float(scale), int(sample_lo), int(sample_hi))
 
@@ -159,9 +152,15 @@ def neighbor_peak_indices(
 ):
     """Per-pixel peak sample index of the neighbour-summed waveform.
 
-    Equivalent to ctapipe's ``neighbor_average_maximum``. ``neighbors`` is a scipy CSR
-    matrix (``geometry.neighbor_matrix_sparse``); its ``indices``/``indptr`` are cast to
-    int32. Returns int64 (n_channels, n_pix).
+    Equivalent to ctapipe's ``neighbor_average_maximum``: sums each pixel's own trace with
+    weight ``local_weight`` and the traces of its non-broken neighbours, then takes the
+    argmax over ``[sample_lo, sample_hi)`` (``(0, 0)`` means the full trace) as an
+    absolute index into the trace. No normalisation by the neighbour count, which would
+    not move the argmax anyway.
+
+    ``neighbors`` is a scipy CSR matrix (``geometry.neighbor_matrix_sparse``); its
+    ``indptr``/``indices`` are cast to int32. ``broken_pixels`` is
+    ``(n_channels, n_pix)``. Returns int64 (n_channels, n_pix).
     """
     wf = np.ascontiguousarray(waveforms, dtype=np.float32)
     indptr = np.ascontiguousarray(neighbors.indptr, dtype=np.int32)
@@ -175,7 +174,9 @@ def neighbor_peak_indices(
 def extract_around_peak(waveforms, peak_index, width, shift, sampling_rate_ghz):
     """Window integration + weighted peak time; ctapipe's ``extract_around_peak``.
 
-    Returns ``(charge, peak_time)`` float32; ``peak_time`` in ns.
+    Integrates over ``[peak_index - shift, peak_index - shift + width)``, clamped to the
+    trace. ``sampling_rate_ghz`` must include any upsampling applied to ``waveforms``.
+    Returns ``(charge, peak_time)`` float32 (n_channels, n_pix); ``peak_time`` in ns.
     """
     wf = np.ascontiguousarray(waveforms, dtype=np.float32)
     pk = np.ascontiguousarray(peak_index, dtype=np.int64)
@@ -187,7 +188,10 @@ def extract_around_peak(waveforms, peak_index, width, shift, sampling_rate_ghz):
 def adaptive_centroid(waveforms, peak_index, rel_descend_limit):
     """Leading-edge centroid in *sample* units; ctapipe's ``adaptive_centroid``.
 
-    float32 (n_channels, n_pix).
+    Walks left then right from ``peak_index`` while samples exceed
+    ``rel_descend_limit * waveforms[peak_index]``, returning the amplitude-weighted index
+    centroid. Falls back to ``peak_index`` where that window is empty. float32
+    (n_channels, n_pix).
     """
     wf = np.ascontiguousarray(waveforms, dtype=np.float32)
     pk = np.ascontiguousarray(peak_index, dtype=np.int64)

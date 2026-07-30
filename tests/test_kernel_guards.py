@@ -44,9 +44,8 @@ def test_deconvolve_2d_input_promotes_leading_axis():
 def test_deconvolve_upsampling_one_pole_zero_zero_preserves_first_sample():
     """up==1, pole_zero==0 is just wf-baseline; the first sample is NOT zeroed.
 
-    Regression: the old numpy path unconditionally set sample 0 to 0, which contradicts
-    deconvolve_valid_range(1, n, 0) == (0, n) (sample 0 is valid when there is no
-    deconvolution). The C++ backend preserves it.
+    Sample 0 must be preserved, consistent with deconvolve_valid_range(1, n, 0) == (0, n):
+    every sample is valid when there is no deconvolution.
     """
     wf = np.random.default_rng(2).normal(50, 10, (1, 4, 12)).astype(np.float32)
     baseline = 5.0

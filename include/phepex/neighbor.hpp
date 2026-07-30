@@ -12,10 +12,12 @@
 
 namespace phepex {
 
-/// Per-pixel peak index (over samples in [sample_lo, sample_hi)) of the neighbour-summed
-/// waveform: average = waveforms[pixel]*local_weight + sum over non-broken neighbours.
-/// First-max tie-break, float32 accumulation, no normalisation. Passing sample_lo ==
-/// sample_hi == 0 means the full trace.
+/// Per-pixel argmax of the neighbour-summed waveform
+/// `waveforms[pixel]*local_weight + sum over non-broken neighbours`, searched over
+/// samples [sample_lo, sample_hi) and returned as an absolute index into the trace.
+/// First-max tie-break, float32 accumulation, no normalisation by the neighbour count (so
+/// this is a sum, not the average its ctapipe counterpart's name suggests; the argmax is
+/// unaffected).
 ///
 /// By default (compile-time option PHEPEX_NEIGHBOR_PAIRWISE_SUM=1) neighbours are
 /// accumulated in pairs to halve the read-modify-write traffic on the accumulator (the
@@ -32,10 +34,16 @@ namespace phepex {
 /// @param waveforms  input (n_ch, n_pix, n_up) float32
 /// @param indptr     CSR row pointers, length n_pix+1
 /// @param indices    CSR column indices (neighbour pixel ids), length indptr[n_pix]
+/// @param local_weight  weight of the pixel's own trace in the sum; 0 sums neighbours
+/// only
 /// @param broken_pixels  (n_ch, n_pix) byte mask (nonzero => broken); broken neighbours
 ///                        are skipped. A byte mask (rather than bool*) lets callers pass
 ///                        contiguous byte storage directly without a bool aliasing
-///                        hazard.
+///                        hazard. The pixel's own flag is not consulted -- a broken pixel
+///                        still gets a peak index.
+/// @param sample_lo, sample_hi  half-open search window; (0, 0) means the full trace.
+///                        Bounds are used unchecked, so the caller must keep them within
+///                        [0, n_up].
 /// @param peak_out   caller-allocated n_ch*n_pix int64 (argmax sample index per pixel)
 /// @param neighbor_count  optional n_ch*n_pix int32 (caller-allocated); if non-null, gets
 ///                        the number of non-broken neighbours summed per pixel
