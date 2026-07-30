@@ -48,8 +48,12 @@ def _extract_all(extractor, wf, sgc, bp):
     return q, t
 
 
-def test_extractor_bit_exact_without_nsb():
-    """With no NSB, the fast extractor reproduces ctapipe on *every* pixel."""
+def test_extractor_match_without_nsb():
+    """With no NSB, the fast extractor reproduces ctapipe to float32 rounding.
+
+    Not bit-exact: ~40% of signal pixels match exactly, the rest deviate by up to ~3e-7
+    relative (different summation order in the C++ kernels).
+    """
     sub = build_flashcam_mst_subarray(22)
     wf, q, _t = generate_events(sub, n_events=60, nsb_rate_ghz=0.0, seed=11)
     n_pix = sub.tel[1].camera.geometry.n_pixels
@@ -94,8 +98,8 @@ if __name__ == "__main__":
     wf, q, t = generate_events(sub, n_events=60, seed=11)
     test_deconvolve_interior_matches((sub, wf, q, t))
     print("deconvolve interior match: OK")
-    test_extractor_bit_exact_without_nsb()
-    print("extractor bit-exact (no NSB): OK")
+    test_extractor_match_without_nsb()
+    print("extractor match (no NSB): OK")
     test_signal_pixels_match_with_nsb()
     print("signal pixels match (200 MHz NSB): OK")
     print("all equivalence checks passed")

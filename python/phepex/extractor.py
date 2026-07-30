@@ -11,7 +11,11 @@
 deconvolution, neighbour-sum clipping and neighbour peak search, window integration and
 leading-edge timing all done in C++ (via ``phepex``). Parameter estimation
 (``_get_deconvolution_parameters``) and the traitlet config come from the ctapipe base
-class; the clip + peak search run over the valid (non-edge) deconvolution samples.
+class. As in the base class, the first gain channel's deconvolution parameters are applied
+to every channel.
+
+The clip and peak search run over the valid (non-edge) deconvolution samples rather than
+the full trace, which is a deliberate divergence from the base class; see ``__call__``.
 
 This is the only phepex module that imports ctapipe.
 """
@@ -40,6 +44,12 @@ class FastFlashCamExtractor(FlashCamExtractor):
     def __call__(
         self, waveforms, tel_id, selected_gain_channel, broken_pixels
     ) -> DL1CameraContainer:
+        """Extract charge and peak time for one event, signature as in the base class.
+
+        Diverges from ``FlashCamExtractor`` in one respect: the neighbour-sum clip and
+        peak search are restricted to the non-edge deconvolution samples (see
+        `phepex.deconvolve_valid_range`), so a peak inside an edge margin is not found.
+        """
         upsampling = self.upsampling.tel[tel_id]
         integration_window_width = self.window_width.tel[tel_id]
         integration_window_shift = self.window_shift.tel[tel_id]
@@ -57,12 +67,12 @@ class FastFlashCamExtractor(FlashCamExtractor):
         # C++: deconvolution, then clip + peak search over the valid deconvolution
         # samples.
         #
-        # Note: unlike ctapipe's FlashCamExtractor, which clips and argmaxes the full
-        # trace, the clip and neighbour peak search here run only over [lo, hi) -- the
-        # non-edge deconvolution samples. The 2*(upsampling-1) samples at each end (and
-        # the extra 3*upsampling-2 at the start when pole_zero != 0) are contaminated by
-        # the upsample+filtfilt boxcar, so they are excluded on purpose. This is a
-        # deliberate divergence from FlashCamExtractor for peaks in those edge regions.
+        # Unlike ctapipe's FlashCamExtractor, which clips and argmaxes the full trace, the
+        # clip and neighbour peak search here run only over [lo, hi) -- the non-edge
+        # deconvolution samples. The 2*(upsampling-1) samples at each end (3*upsampling-2
+        # at the start when pole_zero != 0) are contaminated by the upsample+filtfilt
+        # boxcar, so they are excluded on purpose. This diverges from FlashCamExtractor
+        # for peaks in those edge regions.
         t_waveforms = deconvolve(waveforms, 0.0, upsampling, pz)
         lo, hi = deconvolve_valid_range(upsampling, waveforms.shape[-1], pz)
         nn = (

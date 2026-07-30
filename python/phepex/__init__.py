@@ -7,9 +7,10 @@
 
 """phepex -- photo-electron pulse extraction.
 
-C++-accelerated kernels for extracting charge and timing from digitised PMT/SiPM (e.g.
-Cherenkov telescopes or Water Cherenkov Detectors) waveforms, plus a fast waveform
-generator for testing.
+C++ kernels for extracting charge and timing from digitised PMT/SiPM waveforms (e.g. from
+Cherenkov telescopes or Water Cherenkov Detectors): pole-zero deconvolution + upsampling,
+neighbour-sum peak finding, soft clipping, window integration and leading-edge timing,
+plus a waveform generator for tests and benchmarks.
 
 ``import phepex`` depends only on numpy and the compiled extension; the ctapipe-based
 ``phepex.extractor`` is a separate submodule imported on demand.

@@ -10,11 +10,11 @@
 
 /// phepex -- photo-electron pulse extraction.
 ///
-/// A small, dependency-free C++17 library of the numeric kernels used to extract charge
-/// and timing from PMT/SiPM (e.g. Cherenkov telescopes or Water Cherenkov Detectors)
-/// waveforms: pole-zero deconvolution + upsampling, neighbour-sum peak finding, soft
-/// clipping, window integration and leading-edge timing, plus a fast waveform generator
-/// for testing.
+/// A dependency-free C++17 library of the numeric kernels used to extract charge and
+/// timing from digitised PMT/SiPM waveforms (e.g. from Cherenkov telescopes or Water
+/// Cherenkov Detectors): pole-zero deconvolution + upsampling, neighbour-sum peak
+/// finding, soft clipping, window integration and leading-edge timing, plus a waveform
+/// generator for tests and benchmarks.
 ///
 /// All functions live in namespace `phepex`, operate on caller-owned raw buffers, and
 /// depend only on the C++ standard library.

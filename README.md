@@ -1,16 +1,16 @@
 # phepex — photo-electron pulse extraction
 
 <!-- intro:start -->
-A small, dependency-free **C++17 library** of the numeric kernels used to extract charge and timing from digitised PMT/SiPM (e.g. Cherenkov telescopes or Water Cherenkov Detectors) waveforms — pole-zero deconvolution + upsampling, neighbour-sum peak finding, soft clipping, window integration and leading-edge timing — plus a fast waveform generator for testing.
+A dependency-free **C++17 library** of the numeric kernels used to extract charge and timing from digitised PMT/SiPM waveforms (e.g. from Cherenkov telescopes or Water Cherenkov Detectors) — pole-zero deconvolution + upsampling, neighbour-sum peak finding, soft clipping, window integration and leading-edge timing — plus a waveform generator for tests and benchmarks.
 
-Ships **`libphepex.so`** and **`libphepex.a`**, public headers under `phepex/`, and optional **Python bindings** (`import phepex`).
+Ships `libphepex.so` and `libphepex.a`, public headers under `phepex/`, and optional **Python bindings** (`import phepex`).
 
-The C++ library depends only on the C++ standard library, so it drops into any C++ project. `ctapipe` is used only by the Python benchmark/extractor layer, never by the library itself.
+The C++ library depends only on the C++ standard library, so it drops into any C++ project. `ctapipe` is used only by the Python benchmark/extractor layer, not by the library itself.
 <!-- intro:end -->
 
 ## Documentation
 
-Full API documentation covering **both** the C++ and Python surfaces is published to GitHub Pages: **https://phepex.github.io/phepex/** (built from source by the `docs` workflow on every push to `main`). Build it locally with:
+API documentation for both the C++ and Python surfaces is published to **https://phepex.github.io/phepex/**, rebuilt from source by the `docs` workflow on every push to `main`. Build it locally with:
 
 ```bash
 pip install .[bench] && pip install -r docs/requirements.txt
@@ -24,8 +24,10 @@ All kernels are free functions in namespace `phepex`, operating on caller-owned 
 
 ```cpp
 #include <phepex/phepex.hpp>
-// phepex::preprocess_waveform(wf, n_samples, upsampling, pole_zero, smoothing, offset, scale, out);
-// phepex::pos_soft_clip / neighbor_peak_indices / extract_around_peak / adaptive_centroid / generate_waveforms
+// preprocess_waveform / preprocess_waveforms (batched) / preprocess_valid_range
+//   / calculate_smoothing_coefficients / preprocess_waveforms_scratch_size
+// pos_soft_clip / neighbor_peak_indices / extract_around_peak / adaptive_centroid
+// generate_waveforms / generate_shower_image
 ```
 
 Build & install:
@@ -64,7 +66,7 @@ bindings automatically.
 | `PHEPEX_BUILD_EXAMPLES` | `OFF` | Build the C++ example (`examples/example.cpp`). |
 | `PHEPEX_BUILD_TESTS` | `OFF` | Build the standalone C++ unit tests (vendored Catch2). |
 | `PHEPEX_BUILD_BENCHMARKS` | `OFF` | Build the C++ per-kernel micro-benchmark. |
-| `PHEPEX_NEIGHBOR_PAIRWISE_SUM` | `ON` | Accumulate the neighbour sum in `neighbor_peak_indices` pairwise (~18-22% faster on the benchmarked aarch64 core; see the CHANGELOG for the measurement). `OFF` selects the sequential sum, which is what ctapipe computes; pairwise grouping alters the float32 summation order, so the peak index can differ in near-ties within ~1 ULP. See the note in `include/phepex/neighbor.hpp`. |
+| `PHEPEX_NEIGHBOR_PAIRWISE_SUM` | `ON` | Accumulate the neighbour sum in `neighbor_peak_indices` pairwise (~18–22% faster on the benchmarked aarch64 core; see the CHANGELOG for the measurement). `OFF` selects the sequential sum, bit-identical to a left-to-right accumulation in CSR order; pairwise grouping alters the float32 summation order, so the peak index can differ in near-ties within ~1 ULP. See the note in `include/phepex/neighbor.hpp`. |
 | `PHEPEX_PREPROCESS_TILE_WIDTH` | `24` | Number of waveforms mapped onto SIMD lanes per tile in the batched `preprocess_waveforms` path. Bit-identical for any value `>= 1`; performance only. See the tuning notes below. |
 
 ### Tuning `PHEPEX_PREPROCESS_TILE_WIDTH`
@@ -83,9 +85,9 @@ Recommendations:
   that inside L1; above it the tiles spill and the gain reverses.
 - Build the micro-benchmark (`-DPHEPEX_BUILD_BENCHMARKS=ON
   -DCMAKE_CXX_FLAGS="-march=native" -DPHEPEX_PREPROCESS_TILE_WIDTH=K`) at a few widths and
-  compare the `preprocess up/pz(/smoothing) batch` rows
-- `24` (the default) works best for Apple Silicon (NEON) and Zen 4 architectures, even though
-  the latter supports AVX-512 (float SIMD width of 16).
+  compare the `preprocess up/pz(/smoothing) batch` rows.
+- `24` (the default) measured best on both Apple Silicon (NEON) and Zen 4, even though the
+  latter supports AVX-512 (float SIMD width of 16).
 
 To obtain an optimised Python wheel, pass it through scikit-build-core, e.g.
 `CMAKE_CXX_FLAGS="-march=native" pip install . -C cmake.define.PHEPEX_PREPROCESS_TILE_WIDTH=K`.
@@ -99,7 +101,8 @@ pip install .            # builds the phepex wheel (scikit-build-core + nanobind
 
 ```python
 import phepex
-# phepex.deconvolve, phepex.pos_soft_clip, phepex.neighbor_peak_indices,
+# phepex.preprocess, phepex.deconvolve, phepex.preprocess_valid_range,
+# phepex.deconvolve_valid_range, phepex.pos_soft_clip, phepex.neighbor_peak_indices,
 # phepex.extract_around_peak, phepex.adaptive_centroid, phepex.generate_waveforms
 ```
 
@@ -136,15 +139,17 @@ ctest --test-dir build --output-on-failure     # or: ./build/phepex_tests
 
 ## C++ micro-benchmark (no Python/ctapipe)
 
-`benchmarks/cpp/microbench.cpp` times each `phepex::` kernel in isolation on a realistic
-camera configuration, so a regression can be attributed to a specific kernel. It links only
-`libphepex` and reads the configuration at run time from a text file, so it needs neither
-Python nor ctapipe. One "op" is one full-camera sweep (the per-event cost). The input is one
-artificial event — a skewed-Gaussian shower image over ~200 pixels at ~1–100 p.e. with a
-~1 ns/pixel time gradient, plus 200 MHz NSB on a 200 LSB pedestal, digitised to 12-bit ADC
-counts — because the peak-search and centroid kernels are data-dependent. The image is sized
-in pixel pitches, so a config for another camera gives a comparable event without code
-changes.
+`benchmarks/cpp/microbench.cpp` times each `phepex::` kernel in isolation, so a regression
+can be attributed to a specific kernel. It links only `libphepex` and reads the camera
+configuration at run time from a text file, so it needs neither Python nor ctapipe. One "op"
+is one full-camera sweep (the per-event cost); the reported statistic is the minimum over
+all reps.
+
+Because the peak-search and centroid kernels are data-dependent, the input is one realistic
+artificial event: a skewed-Gaussian shower image over ~200 pixels at ~1–100 p.e. with a
+1 ns/pixel-pitch time gradient, plus 200 MHz NSB on a 200 LSB pedestal, digitised to 12-bit
+ADC counts. Image axes and gradient are expressed in pixel pitches, so a config for another
+camera gives a comparable event without code changes.
 
 ```bash
 cmake -S . -B build -DPHEPEX_BUILD_BENCHMARKS=ON -DCMAKE_CXX_FLAGS="-march=native"
@@ -172,7 +177,7 @@ python3 scripts/export-camera-config.py --camera FlashCam \
 python3 benchmarks/benchmark-fast-extractor.py --events 5000
 ```
 
-Typical result: **~5× faster** end-to-end (leading-edge timing on), with bit-exact / ~1e-7 agreement on signal pixels. Tests: `python3 -m pytest tests/ -q`.
+Typical result: **~5× faster** end-to-end (leading-edge timing on). Extracted charge agrees with stock ctapipe to a median relative deviation of ~1e-7 on signal pixels (99th percentile ~2e-5); a small tail differs materially where the neighbour peak search lands on a different local maximum. See `benchmarks/README.md` for the per-step breakdown and the cause of that tail. Tests: `python3 -m pytest tests/ -q`.
 <!-- benchmark:end -->
 
 ## Notes

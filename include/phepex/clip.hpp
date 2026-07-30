@@ -12,12 +12,16 @@ namespace phepex {
 
 /// Positive soft clip: max(y/(1+|y|), 0) with y = x/scale, applied over samples
 /// [sample_lo, sample_hi) of each (channel, pixel) waveform; samples outside that range
-/// are set to 0. Passing sample_lo == sample_hi == 0 means the full trace. The soft clip
-/// already bounds the result to (-1,1), so only negatives are clamped (to 0).
+/// are set to 0. The soft clip already bounds the result to (-1, 1), so only negatives
+/// are clamped (to 0).
 ///
 /// @param waveforms  input (n_ch, n_pix, n_up) float32
+/// @param scale      divisor applied before the clip; 0 yields +-inf/NaN, unchecked
+/// @param sample_lo, sample_hi  half-open sample window; (0, 0) means the full trace.
+///                   Bounds are used unchecked, so the caller must keep them within
+///                   [0, n_up].
 /// @param out        caller-allocated n_ch*n_pix*n_up floats (fully written; 0 outside
-/// range)
+///                   the window)
 void pos_soft_clip(const float *waveforms, int n_ch, int n_pix, int n_up, float scale,
                    int sample_lo, int sample_hi, float *out);
 

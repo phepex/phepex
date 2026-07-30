@@ -12,12 +12,16 @@
 
 namespace phepex {
 
-/// Synthesize sampled waveforms from per-pixel (charge, peak_time): for the signal
-/// component, each pixel's charge is deposited at its sub-sample peak time and convolved
-/// with the reference pulse shape; a temporally-distributed Poisson night-sky-background
-/// (NSB) process at nsb_rate_ghz and uncorrelated Gaussian electronic noise of
-/// electronic_noise per sample are added on top. Intended as a fast generator
-/// for testing/benchmarking extractors.
+/// Synthesize sampled waveforms from per-pixel (charge, peak_time): each pixel's charge
+/// is deposited at its sub-sample peak time and convolved with the reference pulse shape;
+/// a temporally-distributed Poisson night-sky-background (NSB) process at `nsb_rate_ghz`
+/// and uncorrelated Gaussian electronic noise are added on top. Pixels with charge 0
+/// contribute no signal deposit. Intended as a fast generator for testing/benchmarking
+/// extractors.
+///
+/// Matches ctapipe's WaveformModel for deposits inside the readout window and differs at
+/// the edges, where the deposit time is floor-snapped and pulses centred just outside the
+/// window still contribute their in-window tail instead of being dropped.
 ///
 /// @param charge          (n_events, n_pix) float64 photo-electron charge per pixel
 /// @param time_ns         (n_events, n_pix) float64 pulse peak time (ns) per pixel
@@ -25,7 +29,9 @@ namespace phepex {
 /// @param ref_sample_width_ns  sample width of the reference pulse (ns)
 /// @param sample_width_ns      readout sample width (ns) = 1 / sampling_rate
 /// @param upsampling      internal upsampling used to place sub-sample deposits (e.g. 10)
-/// @param nsb_rate_ghz    NSB rate in GHz (0 disables NSB)
+/// @param nsb_rate_ghz    NSB rate in GHz (0 disables NSB). NSB p.e. are rendered with
+///                        only the pulse-kernel taps carrying 99.99% of its integral,
+///                        unlike the signal deposit, which uses the full kernel.
 /// @param electronic_noise standard deviation of the zero-mean Gaussian noise added
 ///                        independently to every output sample, in the units of `out`
 ///                        (p.e. of pulse integral per readout sample). 0 disables it and
@@ -47,15 +53,15 @@ void generate_waveforms(const double *charge, const double *time_ns, int n_event
 struct ShowerModel {
     double centroid_x_m = 0;  ///< image centroid, x
     double centroid_y_m = 0;  ///< image centroid, y
-    double length_m = 0;      ///< major-axis width (standard deviation, incl. any skew)
-    double width_m = 0;       ///< minor-axis width (Gaussian sigma)
-    double psi_rad = 0;       ///< major-axis rotation (0 = +x axis)
-    double skewness = 0;      ///< skew along the major axis only; 0 = symmetric,
-                              ///< |skewness| < 0.995271746431 (the skew-normal's limit)
-    double intensity_pe = 0;  ///< total expected photo-electrons in the image
+    double length_m = 0;  ///< major-axis standard deviation (preserved under the skew)
+    double width_m = 0;   ///< minor-axis standard deviation (Gaussian sigma)
+    double psi_rad = 0;   ///< major-axis rotation (0 = +x axis)
+    double skewness = 0;  ///< skew along the major axis only; 0 = symmetric,
+                          ///< |skewness| < 0.995271746431 (the skew-normal's limit)
+    double intensity_pe = 0;            ///< total expected photo-electrons in the image
     double time_gradient_ns_per_m = 0;  ///< d(peak time) / d(longitudinal distance)
     double time_intercept_ns = 0;       ///< peak time at the centroid
-    double time_jitter_ns = 0;  ///< half-width of the uniform per-pixel time jitter
+    double time_jitter_ns = 0;      ///< half-width of the uniform per-pixel time jitter
     bool photon_statistics = true;  ///< draw each pixel's charge from a Poisson
                                     ///< distribution around its expectation; with `false`
                                     ///< the expectation is rounded to the nearest integer
@@ -68,9 +74,9 @@ struct ShowerModel {
 /// generate_waveforms().
 ///
 /// Charges are Poisson draws around `intensity_pe * pdf(x, y) * pixel_area_m2` (or that
-/// expectation rounded to the nearest integer, if `photon_statistics == false`), where pdf
-/// is a Gaussian of sigma `width_m` in the transverse coordinate times a skew-normal of
-/// scale/location derived from (`length_m`, `skewness`) in the longitudinal one. Times
+/// expectation rounded to the nearest integer, if `photon_statistics == false`), where
+/// pdf is a Gaussian of sigma `width_m` in the transverse coordinate times a skew-normal
+/// of scale/location derived from (`length_m`, `skewness`) in the longitudinal one. Times
 /// are linear in the longitudinal coordinate plus jitter drawn from
 /// [-time_jitter_ns, +time_jitter_ns]; they are written for every pixel, including those
 /// whose charge is 0 (which generate_waveforms skips). Assumes a uniform pixel area, and

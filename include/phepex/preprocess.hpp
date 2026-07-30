@@ -30,23 +30,26 @@ struct SmoothingCoefficients {
 };
 
 /// Compute the smoothing coefficients for a given impulse-response FWHM (in samples).
+/// Requires `smoothing_fwhm > 0` (it appears in a denominator, as sigma = fwhm/2.1);
+/// unchecked.
 SmoothingCoefficients calculate_smoothing_coefficients(double smoothing_fwhm);
 
 /// Upsampling + pole-zero deconvolution of a single waveform, with optional Gaussian
 /// smoothing. Repeats each of the `n_samples` inputs `upsampling` times, subtracts
 /// `offset` and applies `scale`, corrects a single-pole decay `pole_zero`, and smooths
 /// with two `upsampling`-wide moving averages; when `smoothing != nullptr` an additional
-/// Deriche IIR pass is applied. At `upsampling == 1` the two moving averages are width-1
-/// (identity), so the result is the pole-zero-corrected signal
-/// scale*((src[i]-offset) - pole_zero*(src[i-1]-offset)) with out[0] =
-/// scale*(src[0]-offset); it degenerates to scale*(src - offset) only when `pole_zero ==
-/// 0`.
+/// Deriche IIR pass is applied. At `upsampling == 1` both moving averages are width-1
+/// (identity), leaving out[i] = scale*((src[i]-offset) - pole_zero*(src[i-1]-offset)) and
+/// out[0] = scale*(src[0]-offset); that degenerates to scale*(src - offset) only when
+/// `pole_zero == 0`.
 ///
-/// Writes `n_samples*upsampling` floats to `out` (caller-allocated). All arithmetic is
-/// float32; `offset`/`scale`/`pole_zero` are float on purpose (bit-exactness).
+/// Requires `upsampling >= 1`; smaller values are unchecked and read out of bounds. All
+/// arithmetic is float32; `offset`/`scale`/`pole_zero` are float on purpose
+/// (bit-exactness against ctapipe).
 ///
 /// @param src        input waveform of `n_samples` samples
-/// @param smoothing  optional Deriche coefficients; nullptr disables smoothing
+/// @param smoothing  optional Deriche coefficients (see
+///                   calculate_smoothing_coefficients()); nullptr disables smoothing
 /// @param out        caller-allocated output of n_samples*upsampling floats
 /// @param scratch    optional caller-provided workspace of at least n_samples*upsampling
 ///                   floats, used only when `smoothing != nullptr`; if null a buffer is
@@ -59,39 +62,32 @@ void preprocess_waveform(const float *src, int n_samples, int upsampling, float 
                          float scale, float *out, float *scratch = nullptr);
 
 /// Apply preprocess_waveform() to each of `n_rows` consecutive waveforms of `n_samples`
-/// samples, writing `n_rows * n_samples * upsampling` floats to `out`. Requires
-/// `upsampling >= 1`; `upsampling == 0` is not checked and reads out of bounds.
-/// `pole_zero`,
-/// `offset` and `scale` are read per row as `array[row * stride]`; a stride of 0
-/// broadcasts a single value to every row, a stride of 1 selects a distinct per-row
-/// value.
+/// samples, writing `n_rows * n_samples * upsampling` floats to caller-allocated `out`.
+/// Rows are contiguous on both sides (row `r` reads `src[r * n_samples]` and writes
+/// `out[r * n_samples * upsampling]`); strided views must be copied by the caller.
+/// `pole_zero`, `offset` and `scale` are read per row as `array[row * stride]`, so a
+/// stride of 0 broadcasts one value to every row and a stride of 1 selects a distinct
+/// per-row value.
 ///
 /// Rows are processed in fixed-width tiles, one row per SIMD lane, whenever the per-row
-/// work contains a loop-carried, latency-bound recurrence: the upsampling running sums
-/// (when `upsampling > 1`) and/or the Deriche IIR (when `smoothing != nullptr`; see
-/// calculate_smoothing_coefficients()). Tiling fills that recurrence with independent
-/// rows, raising throughput by more than the tile transpose costs. The result is
-/// bit-identical to calling preprocess_waveform() once per row: intermediate arithmetic
-/// order and precision (double accumulators in the smoothing pass) are unchanged.
+/// work carries a latency-bound recurrence -- the upsampling running sums
+/// (`upsampling > 1`) and/or the Deriche IIR (`smoothing != nullptr`) -- so that the
+/// recurrence is filled with independent rows; the gain exceeds the cost of the tile
+/// transpose. uint16 input is widened inside that transpose and so costs no more than
+/// float input. The one case without such a recurrence, `upsampling == 1` with
+/// `smoothing == nullptr`, is a pole-zero stencil that already vectorises across samples
+/// and takes the per-row scalar path.
 ///
-/// The single case with no such recurrence -- `upsampling == 1` and `smoothing ==
-/// nullptr`, where the kernel is a pole-zero stencil that already vectorises across
-/// samples -- uses the per-row scalar path directly, as tiling would only add transpose
-/// overhead.
+/// Output is bit-identical to calling preprocess_waveform() once per row: arithmetic
+/// order and intermediate precision (double accumulators in the smoothing pass) are
+/// unchanged. Requires `upsampling >= 1`, unchecked as in preprocess_waveform().
 ///
-/// `out` is caller-allocated. Input rows are read contiguously (row `r` starts at
-/// `src[r * n_samples]`), as are output rows (`out[r * n_samples * upsampling]`); strided
-/// views must be copied by the caller. uint16 input is widened during the tile transpose
-/// the batched path performs anyway, so it costs no more than float input.
-///
-/// `scratch` is an optional workspace for the tile buffers of the batched path: pass a
-/// buffer of at least
-/// preprocess_waveforms_scratch_size(n_samples, upsampling, smoothing) floats to avoid
-/// the per-call allocation (e.g. when preprocessing many events in a loop); if null a
-/// buffer is allocated internally for the duration of the call. Used only on the tiled
-/// path; ignored when `upsampling == 1` and `smoothing == nullptr` (where the size query
-/// returns 0). The caller-provided scratch must not be shared between concurrent calls;
-/// the null path is reentrant.
+/// @param scratch  optional workspace for the tile buffers, at least
+///                 preprocess_waveforms_scratch_size(n_samples, upsampling, smoothing)
+///                 floats; avoids the per-call allocation when preprocessing many events
+///                 in a loop. If null a buffer is allocated internally for the duration
+///                 of the call. Unused on the scalar path. A caller-provided buffer must
+///                 not be shared between concurrent calls; the null path is reentrant.
 void preprocess_waveforms(const std::uint16_t *src, int n_rows, int n_samples,
                           int upsampling, const float *pole_zero,
                           std::ptrdiff_t pole_zero_stride,
@@ -115,13 +111,11 @@ void preprocess_waveforms(const float *src, int n_rows, int n_samples, int upsam
 std::size_t preprocess_waveforms_scratch_size(int n_samples, int upsampling,
                                               const SmoothingCoefficients *smoothing);
 
-/// Trustworthy (non-edge) sample range of preprocess_waveform(), as indices into the
-/// `upsampling*num_samples` output. The boxcar smoothing contaminates 2*(upsampling-1)
-/// samples at each end, a non-zero pole_zero adds `upsampling` more invalid samples at
-/// the start, and an optional Deriche pass widens both margins by floor(fwhm). The
-/// margins are in upsampled samples, so the range is
-/// {left, upsampling*num_samples - right}. Returns {0, 0} when the margins leave no
-/// trustworthy samples.
+/// Trustworthy (non-edge) sample range of preprocess_waveform(), as indices into its
+/// length `upsampling*num_samples` output. The two boxcars contaminate 2*(upsampling-1)
+/// samples at each end, a non-zero `pole_zero` adds `upsampling` more at the start, and a
+/// Deriche pass widens both margins by floor(fwhm). Returns {0, 0} when the margins meet
+/// or cross, i.e. when no sample is trustworthy.
 SampleRange preprocess_valid_range(int upsampling, float pole_zero,
                                    const SmoothingCoefficients *smoothing,
                                    int num_samples);

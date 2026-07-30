@@ -246,13 +246,12 @@ NB_MODULE(_core, m) {
     // by an exact uint16 match and never performs a copy; raw ADC arrays therefore reach
     // the kernel without a float32 staging pass.
     const char *preprocess_doc =
-        "Upsample + pole-zero deconvolution + optional Deriche smoothing per (channel, "
-        "pixel); float32 (n_ch,n_pix,n_samples*upsampling). waveforms is float32 or "
-        "uint16 "
-        "(other dtypes are converted to float32); upsampling must be >= 1; "
-        "pole_zero/baseline/scale are length-1 or (n_ch*n_pix,) arrays; smoothing_fwhm "
-        "<= "
-        "0 disables smoothing.";
+        "Upsample + pole-zero deconvolution + optional Deriche smoothing per "
+        "(channel, pixel). Returns float32 (n_ch, n_pix, n_samples*upsampling). "
+        "`waveforms` is float32 or uint16 (any other dtype is converted to float32); "
+        "`upsampling` must be >= 1; `pole_zero`, `baseline` and `scale` are each a "
+        "length-1 array (one value for every row) or a length n_ch*n_pix array (one per "
+        "row); `smoothing_fwhm <= 0` disables smoothing.";
     m.def("preprocess", &preprocess<float>, nb::arg("waveforms"), nb::arg("upsampling"),
           nb::arg("pole_zero"), nb::arg("smoothing_fwhm"), nb::arg("baseline"),
           nb::arg("scale"), preprocess_doc);
@@ -261,25 +260,30 @@ NB_MODULE(_core, m) {
           nb::arg("baseline"), nb::arg("scale"), preprocess_doc);
     m.def("preprocess_valid_range", &preprocess_valid_range, nb::arg("upsampling"),
           nb::arg("pole_zero"), nb::arg("smoothing_fwhm"), nb::arg("n_samples"),
-          "Trustworthy (non-edge) output-sample range (lo, hi) of preprocess (DVR "
-          "convention on the raw n_samples).");
+          "Trustworthy (non-edge) output-sample range (lo, hi) of preprocess. "
+          "`n_samples` is the raw, pre-upsampling count; the bounds index the length "
+          "n_samples*upsampling output. (0, 0) means no sample is trustworthy.");
     m.def("pos_soft_clip", &pos_soft_clip, nb::arg("waveforms"), nb::arg("scale"),
           nb::arg("sample_lo") = 0, nb::arg("sample_hi") = 0,
-          "Positive soft clip max(soft_clip(waveforms/scale), 0) over [sample_lo, "
-          "sample_hi).");
+          "Positive soft clip max(soft_clip(waveforms/scale), 0) over "
+          "[sample_lo, sample_hi), 0 elsewhere; (0, 0) means the full trace.");
     m.def("neighbor_peak_indices", &neighbor_peak_indices, nb::arg("waveforms"),
           nb::arg("indptr"), nb::arg("indices"), nb::arg("local_weight"),
           nb::arg("broken_pixels"), nb::arg("sample_lo") = 0, nb::arg("sample_hi") = 0,
-          "Per-pixel peak sample index of the neighbour-summed waveform over [sample_lo, "
-          "sample_hi).");
+          "Per-pixel peak sample index of the neighbour-summed waveform, searched over "
+          "[sample_lo, sample_hi) ((0, 0) means the full trace) and returned as an "
+          "absolute index into the trace. int64 (n_ch, n_pix).");
     m.def(
         "extract_around_peak", &extract_around_peak, nb::arg("waveforms"),
         nb::arg("peak_index"), nb::arg("width"), nb::arg("shift"),
         nb::arg("sampling_rate_ghz"),
-        "Window integration + weighted peak time. Returns (charge, peak_time) float32.");
+        "Window integration + amplitude-weighted peak time over "
+        "[peak_index-shift, peak_index-shift+width). Returns (charge, peak_time) float32 "
+        "(n_ch, n_pix); peak_time in ns.");
     m.def("adaptive_centroid", &adaptive_centroid, nb::arg("waveforms"),
           nb::arg("peak_index"), nb::arg("rel_descend_limit"),
-          "Leading-edge centroid (sample units) per pixel.");
+          "Leading-edge amplitude-weighted centroid in sample units. float32 "
+          "(n_ch, n_pix).");
     m.def(
         "generate_waveforms", &generate_waveforms, nb::arg("charge"), nb::arg("time_ns"),
         nb::arg("reference_pulse"), nb::arg("ref_sample_width_ns"),
@@ -287,10 +291,12 @@ NB_MODULE(_core, m) {
         nb::arg("nsb_rate_ghz") = 0.0, nb::arg("electronic_noise") = 0.0,
         nb::arg("seed") = 0,
         R"doc(Synthesize (n_events, n_pixels, n_samples) float32 waveforms from per-pixel
-(charge, peak_time): a physically-placed signal deposit plus Poisson NSB and zero-mean
-Gaussian electronic noise of `electronic_noise` per sample (0 disables it and draws no
-random numbers). Matches ctapipe
-WaveformModel for deposits inside the readout window, but is physically correct at the
-edges (floor-snapped deposit time, and pulses centred just outside the window still
-contribute their in-window tail rather than being dropped as WaveformModel does).)doc");
+(charge, peak_time): one signal deposit per pixel with charge != 0, convolved with
+`reference_pulse`, plus Poisson NSB at `nsb_rate_ghz` and zero-mean Gaussian electronic
+noise of standard deviation `electronic_noise` per sample (0 disables the noise and draws
+no random numbers, leaving the output bit-identical to a noiseless build).
+
+Matches ctapipe's WaveformModel for deposits inside the readout window and differs at the
+edges, where the deposit time is floor-snapped and pulses centred just outside the window
+still contribute their in-window tail instead of being dropped.)doc");
 }
