@@ -9,6 +9,21 @@ numbers are derived from git tags (`vX.Y.Z`) by setuptools-scm (Python) and GitV
 
 ## [Unreleased]
 
+### Changed
+- The Deriche smoothing pass (`smooth_waveform` and its batched counterpart
+  `smooth_batched`) now evaluates its recursion entirely in float32. The coefficients are
+  narrowed to float once on entry, so the products in the forward and backward loops no
+  longer promote to double, and the backward pass carries float state. Measured with the
+  per-kernel micro-benchmark on Apple M1 Pro (1764-pixel FlashCam, 22 samples, upsampling
+  4): smoothing alone 163 -> 96 us/event (-41%), upsampling + smoothing 1148 -> 837
+  us/event (-27%), the tiled full sweep `preprocess up/pz/smoothing batch` 213 -> 165
+  us/event (-23%). The numerical deviation was quantified against a long double evaluation
+  of the same recursion in `tests/cpp/test_smoothing_precision.cpp`: ~10^-7 relative on
+  the samples, < 10^-3 p.e. on the extracted charge and < 10^-4 upsampled samples on the
+  centroid. The error does not accumulate with trace length; it grows with FWHM as
+  1/(1-r)^2, reaching ~10^-6 relative at FWHM 20. Both the impulse-response width and the
+  unity DC gain are preserved (< 10^-4 and ~10^-6 deviation respectively).
+
 ## [0.2.1] - 2026-07-30
 
 ### Changed

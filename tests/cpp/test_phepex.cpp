@@ -426,10 +426,19 @@ TEST_CASE("generate_shower_image: intensity, time model, reproducibility", "[gen
 // preprocess_waveform / preprocess_valid_range: bit-exact against a FROZEN copy of
 // libdvr's DSP kernels (the oracle), so that any divergence from libdvr's math fails
 // here. The reference code below is a verbatim copy of libdvr's src/DSP.cpp and must NOT
-// be "cleaned up", with ONE deliberate exception: refDeconvolveUnit applies the pole-zero
-// correction at upsampling == 1, where libdvr's DSP.cpp computes scale*(src-offset)
-// instead. phepex applies the correction there, so the oracle is patched identically to
-// keep the bit-exact comparison meaningful; for upsampling > 1 it is unmodified.
+// be "cleaned up", with TWO deliberate exceptions, each mirroring a place where phepex
+// intentionally departs from libdvr; the oracle is patched identically so the bit-exact
+// comparison stays meaningful:
+//
+//  1. refDeconvolveUnit applies the pole-zero correction at upsampling == 1, where
+//     libdvr's DSP.cpp computes scale*(src-offset) instead. For upsampling > 1 the
+//     deconvolution is unmodified.
+//  2. refSmooth evaluates the Deriche recursion entirely in float32 (narrowed coefficients
+//     and float backward state), where libdvr accumulates the backward pass in double.
+//     phepex trades that precision for ~25-40% on the smoothing kernels; the resulting
+//     deviation is ~1e-7 relative on the samples and < 1e-3 p.e. on the extracted charge,
+//     measured in tests/cpp/test_smoothing_precision.cpp. Waveforms smoothed by phepex
+//     are therefore NOT bit-comparable with libdvr's -- only with each other.
 namespace {
 
 template <typename InputType, typename OutputType>
@@ -474,18 +483,20 @@ void refSmooth(const InputType *x, OutputType *y, int n,
                const phepex::SmoothingCoefficients &c) {
     if (n == 0 || x == nullptr || y == nullptr)
         return;
-    y[0] = c.n[0] * x[0];
+    const float n0 = c.n[0], n1 = c.n[1], m0 = c.m[0], m1 = c.m[1], d0 = c.d[0],
+                d1 = c.d[1];
+    y[0] = n0 * x[0];
     if (n == 1)
         return;
-    y[1] = c.n[0] * x[1] + c.n[1] * x[0] - c.d[0] * y[0];
+    y[1] = n0 * x[1] + n1 * x[0] - d0 * y[0];
     for (int i = 2; i < n; i++)
-        y[i] = c.n[0] * x[i] + c.n[1] * x[i - 1] - c.d[0] * y[i - 1] - c.d[1] * y[i - 2];
-    double y_2 = 0, y_1 = 0, y_0 = c.m[0] * x[n - 1];
+        y[i] = n0 * x[i] + n1 * x[i - 1] - d0 * y[i - 1] - d1 * y[i - 2];
+    float y_2 = 0, y_1 = 0, y_0 = m0 * x[n - 1];
     y[n - 2] += y_0;
     for (int i = n - 3; i >= 0; i--) {
         y_2 = y_1;
         y_1 = y_0;
-        y_0 = c.m[0] * x[i + 1] + c.m[1] * x[i + 2] - c.d[0] * y_1 - c.d[1] * y_2;
+        y_0 = m0 * x[i + 1] + m1 * x[i + 2] - d0 * y_1 - d1 * y_2;
         y[i] += y_0;
     }
 }

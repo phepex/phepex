@@ -114,6 +114,7 @@ if(PHEPEX_BUILD_TESTS)
   enable_testing()
   add_executable(phepex_tests
       tests/cpp/test_phepex.cpp
+      tests/cpp/test_smoothing_precision.cpp
       third_party/catch2/catch_amalgamated.cpp)
   target_include_directories(phepex_tests PRIVATE third_party/catch2)
   target_link_libraries(phepex_tests PRIVATE phepex::phepex)
