@@ -305,7 +305,7 @@
     - Zero-copy Python interfaces for both uint16 (R1/DL0) and float32 (ctapipe) data.
     - Lower barrier to benchmarking extraction variants.
 
-    #v(0.35in)
+    #v(1fr)
 
     #grid(
       columns: (0.95fr, 1fr, 0.95fr),
@@ -329,7 +329,7 @@
 
               #text("+630% (Python) / +53% (C++)", size: 20pt, weight: "bold", fill: accent)
 
-              `phepex/benchmarks/cpp/microbench.cpp`
+              #text([ #raw("phepex/benchmarks/cpp/microbench.cpp") ], size: 12pt)
             ])
           ],
         )
@@ -353,7 +353,7 @@
 
               #text("+233%", size: 20pt, weight: "bold", fill: accent)
 
-              `phepex/benchmarks/benchmark-fast-extractor.py`
+              #text([ #raw("phepex/benchmarks/benchmark-fast-extractor.py") ], size: 12pt)
             ])
           ],
         )
@@ -377,12 +377,16 @@
 
             #text("+62%", size: 20pt, weight: "bold", fill: accent)
 
-            `libdvr/cmd/dvr-benchmark/main.cpp`
+            #text([ #raw("libdvr/cmd/dvr-benchmark/main.cpp") ], size: 12pt)
             ])
           ],
         )
       ],
     )
+
+    #v(1fr)
+
+    #text("Measured on an Apple M1 Pro for a typical FlashCam event size (1764 pixels, 22 samples, uint16).", size: 12pt, fill: muted)
   ],
 )
 
