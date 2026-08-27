@@ -41,25 +41,35 @@ void smooth_waveform(const InputType *x, OutputType *y, int n,
     if (n == 0 || x == nullptr || y == nullptr)
         return;
 
+    // The recursion runs entirely in float32: narrowing the coefficients once here keeps
+    // the loop products from promoting to double, which measures 25-30% faster. The
+    // filter is stable enough for this -- its pole radius exp(-b/sigma) is 0.36 at the
+    // FlashCam operating point (fwhm 3 upsampled samples), so rounding is forgotten in
+    // ~1.6 samples and does not accumulate with trace length. The resulting error is
+    // ~1e-7 relative on the samples and < 1e-3 p.e. on the extracted charge; see
+    // tests/cpp/test_smoothing_precision.cpp for the measurement.
+    const float n0 = c.n[0], n1 = c.n[1], m0 = c.m[0], m1 = c.m[1], d0 = c.d[0],
+                d1 = c.d[1];
+
     // Forward step: y[i] = n[0]*x[i] + n[1]*x[i-1] - d[0]*y[i-1] - d[1]*y[i-2]
-    y[0] = c.n[0] * x[0];
+    y[0] = n0 * x[0];
 
     if (n == 1)
         return;
 
-    y[1] = c.n[0] * x[1] + c.n[1] * x[0] - c.d[0] * y[0];
+    y[1] = n0 * x[1] + n1 * x[0] - d0 * y[0];
     for (int i = 2; i < n; i++)
-        y[i] = c.n[0] * x[i] + c.n[1] * x[i - 1] - c.d[0] * y[i - 1] - c.d[1] * y[i - 2];
+        y[i] = n0 * x[i] + n1 * x[i - 1] - d0 * y[i - 1] - d1 * y[i - 2];
 
     // Backward step: y[i] = m[0]*x[i+1] + m[1]*x[i+2] - d[0]*y[i+1] - d[1]*y[i+2]
-    double y_2 = 0;
-    double y_1 = 0;
-    double y_0 = c.m[0] * x[n - 1];
+    float y_2 = 0;
+    float y_1 = 0;
+    float y_0 = m0 * x[n - 1];
     y[n - 2] += y_0;
     for (int i = n - 3; i >= 0; i--) {
         y_2 = y_1;
         y_1 = y_0;
-        y_0 = c.m[0] * x[i + 1] + c.m[1] * x[i + 2] - c.d[0] * y_1 - c.d[1] * y_2;
+        y_0 = m0 * x[i + 1] + m1 * x[i + 2] - d0 * y_1 - d1 * y_2;
         y[i] += y_0;
     }
 }
@@ -207,15 +217,15 @@ void upsample_batched(int n, int up, const float *xin, const float *pole_zero,
         }
 }
 
-// Batched smooth_waveform over K lanes. The forward/backward recurrences accumulate in
-// double per lane, matching the scalar kernel's precision (coefficients are double, y/x
-// are float); `y[i] += nv` with double nv promotes as in the scalar `y[i] += y0`.
+// Batched smooth_waveform over K lanes. Coefficients and recurrence state are narrowed to
+// float exactly as in the scalar kernel (see smooth_waveform for why float32 suffices),
+// so each lane is bit-identical to the scalar result.
 template <int K>
 void smooth_batched(const float *x, float *y, int n, const SmoothingCoefficients &c) {
     if (n <= 0)
         return;
-    const double n0 = c.n[0], n1 = c.n[1], m0 = c.m[0], m1 = c.m[1], d0 = c.d[0],
-                 d1 = c.d[1];
+    const float n0 = c.n[0], n1 = c.n[1], m0 = c.m[0], m1 = c.m[1], d0 = c.d[0],
+                d1 = c.d[1];
     for (int k = 0; k < K; k++)
         y[k] = n0 * x[k];
     if (n == 1)
@@ -227,7 +237,7 @@ void smooth_batched(const float *x, float *y, int n, const SmoothingCoefficients
             y[i * K + k] = n0 * x[i * K + k] + n1 * x[(i - 1) * K + k] -
                            d0 * y[(i - 1) * K + k] - d1 * y[(i - 2) * K + k];
 
-    double pr0[K], pr1[K];
+    float pr0[K], pr1[K];
     for (int k = 0; k < K; k++) {
         pr0[k] = m0 * x[(n - 1) * K + k];
         pr1[k] = 0.0;
@@ -235,8 +245,8 @@ void smooth_batched(const float *x, float *y, int n, const SmoothingCoefficients
     }
     for (int i = n - 3; i >= 0; i--)
         for (int k = 0; k < K; k++) {
-            const double o0 = pr0[k], o1 = pr1[k];
-            const double nv =
+            const float o0 = pr0[k], o1 = pr1[k];
+            const float nv =
                 m0 * x[(i + 1) * K + k] + m1 * x[(i + 2) * K + k] - d0 * o0 - d1 * o1;
             y[i * K + k] += nv;
             pr1[k] = o0;

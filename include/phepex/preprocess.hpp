@@ -79,8 +79,8 @@ void preprocess_waveform(const float *src, int n_samples, int upsampling, float 
 /// and takes the per-row scalar path.
 ///
 /// Output is bit-identical to calling preprocess_waveform() once per row: arithmetic
-/// order and intermediate precision (double accumulators in the smoothing pass) are
-/// unchanged. Requires `upsampling >= 1`, unchecked as in preprocess_waveform().
+/// order and intermediate precision (float32 throughout, including the smoothing pass)
+/// are unchanged. Requires `upsampling >= 1`, unchecked as in preprocess_waveform().
 ///
 /// @param scratch  optional workspace for the tile buffers, at least
 ///                 preprocess_waveforms_scratch_size(n_samples, upsampling, smoothing)
