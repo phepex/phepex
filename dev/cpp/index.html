@@ -1,0 +1,730 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Python API" href="../python/index.html"><link rel="prev" title="Getting started" href="../getting-started.html">
+        <link rel="prefetch" href="../_static/phepex-icon-light.svg" as="image">
+        <link rel="prefetch" href="../_static/phepex-icon-dark.svg" as="image">
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.12.19 -->
+        <title>C++ API - phepex 0.2.2.dev3+g37d4ce771 Documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="../_static/version-switcher.css?v=8d63418d" />
+    <link rel="stylesheet" type="text/css" href="../_static/slides-viewer.css?v=6ffe8a9d" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  --color-brand-primary: #7C4DFF;
+  --color-brand-content: #7C4DFF;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #9C86DE;
+  --color-brand-content: #9C86DE;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  --color-brand-primary: #9C86DE;
+  --color-brand-content: #9C86DE;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">phepex 0.2.2.dev3+g37d4ce771 Documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo only-light" src="../_static/phepex-icon-light.svg" alt="Light Logo"/>
+    <img class="sidebar-logo only-dark" src="../_static/phepex-icon-dark.svg" alt="Dark Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">phepex 0.2.2.dev3+g37d4ce771 Documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../slides.html">Introduction slides</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting-started.html">Getting started</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">C++ API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../python/index.html">Python API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../changelog.html">Changelog</a></li>
+</ul>
+
+</div></div><div class="phepex-version-switcher" hidden
+     data-current-version="dev"
+     data-switcher-url="https://phepex.github.io/phepex/switcher.json">
+  <label class="phepex-version-switcher__label">
+    <span>Version</span>
+    <select class="phepex-version-switcher__select"
+            aria-label="Select documentation version"></select>
+  </label>
+</div>
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/cpp/index.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="c-api">
+<h1>C++ API<a class="headerlink" href="#c-api" title="Link to this heading">¶</a></h1>
+<p>The public <code class="docutils literal notranslate"><span class="pre">phepex::</span></code> kernels, grouped by header. Include everything via the umbrella header
+<code class="docutils literal notranslate"><span class="pre">&lt;phepex/phepex.hpp&gt;</span></code>, or a single header for one kernel.</p>
+<section id="waveform-preprocessing">
+<h2>Waveform preprocessing<a class="headerlink" href="#waveform-preprocessing" title="Link to this heading">¶</a></h2>
+<p>Declared in <code class="docutils literal notranslate"><span class="pre">&lt;phepex/preprocess.hpp&gt;</span></code>: upsampling + pole-zero deconvolution with optional
+Deriche (1992) Gaussian smoothing, per waveform (<code class="docutils literal notranslate"><span class="pre">preprocess_waveform</span></code>) or over a batch of
+rows in one call (<code class="docutils literal notranslate"><span class="pre">preprocess_waveforms</span></code>), plus the valid-sample range of the result. Plain
+pole-zero deconvolution is the <code class="docutils literal notranslate"><span class="pre">smoothing</span> <span class="pre">==</span> <span class="pre">nullptr</span></code> case.</p>
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11SampleRangeE">
+<span id="_CPPv3N6phepex11SampleRangeE"></span><span id="_CPPv2N6phepex11SampleRangeE"></span><span id="phepex::SampleRange"></span><span class="target" id="structphepex_1_1SampleRange"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SampleRange</span></span></span><a class="headerlink" href="#_CPPv4N6phepex11SampleRangeE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Half-open sample range [lo, hi). </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11SampleRange2loE">
+<span id="_CPPv3N6phepex11SampleRange2loE"></span><span id="_CPPv2N6phepex11SampleRange2loE"></span><span id="phepex::SampleRange::lo__i"></span><span class="target" id="structphepex_1_1SampleRange_1ab58b3bf92f10500941528f9461972107"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">lo</span></span></span><a class="headerlink" href="#_CPPv4N6phepex11SampleRange2loE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>lower limit (inclusive) </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11SampleRange2hiE">
+<span id="_CPPv3N6phepex11SampleRange2hiE"></span><span id="_CPPv2N6phepex11SampleRange2hiE"></span><span id="phepex::SampleRange::hi__i"></span><span class="target" id="structphepex_1_1SampleRange_1a7c903dbc3b0b55a5cd62e0b65a1ef98a"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">hi</span></span></span><a class="headerlink" href="#_CPPv4N6phepex11SampleRange2hiE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>upper limit (exclusive) </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex21SmoothingCoefficientsE">
+<span id="_CPPv3N6phepex21SmoothingCoefficientsE"></span><span id="_CPPv2N6phepex21SmoothingCoefficientsE"></span><span id="phepex::SmoothingCoefficients"></span><span class="target" id="structphepex_1_1SmoothingCoefficients"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">SmoothingCoefficients</span></span></span><a class="headerlink" href="#_CPPv4N6phepex21SmoothingCoefficientsE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Coefficients for the delay-compensated second-order IIR (Deriche 1992) Gaussian-like smoothing applied by <a class="reference internal" href="#namespacephepex_1a4f495fad36a7c4668c0eba8d73cb20d7"><span class="std std-ref">preprocess_waveform()</span></a>. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex21SmoothingCoefficients4fwhmE">
+<span id="_CPPv3N6phepex21SmoothingCoefficients4fwhmE"></span><span id="_CPPv2N6phepex21SmoothingCoefficients4fwhmE"></span><span id="phepex::SmoothingCoefficients::fwhm__double"></span><span class="target" id="structphepex_1_1SmoothingCoefficients_1a0a3616323f2c0cc3ce02a3541174e347"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fwhm</span></span></span><a class="headerlink" href="#_CPPv4N6phepex21SmoothingCoefficients4fwhmE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>target full width at half maximum of the impulse response </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex21SmoothingCoefficients1nE">
+<span id="_CPPv3N6phepex21SmoothingCoefficients1nE"></span><span id="_CPPv2N6phepex21SmoothingCoefficients1nE"></span><span id="phepex::SmoothingCoefficients::n__std::array:double.2:"></span><span class="target" id="structphepex_1_1SmoothingCoefficients_1aea304f7adf38dfe5aea9d180049ee8a7"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">array</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">double</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">2</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">n</span></span></span><a class="headerlink" href="#_CPPv4N6phepex21SmoothingCoefficients1nE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>numerator coefficients for the forward filter step </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex21SmoothingCoefficients1mE">
+<span id="_CPPv3N6phepex21SmoothingCoefficients1mE"></span><span id="_CPPv2N6phepex21SmoothingCoefficients1mE"></span><span id="phepex::SmoothingCoefficients::m__std::array:double.2:"></span><span class="target" id="structphepex_1_1SmoothingCoefficients_1affb610ce3dd3d23efe075277278b2e47"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">array</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">double</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">2</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">m</span></span></span><a class="headerlink" href="#_CPPv4N6phepex21SmoothingCoefficients1mE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>numerator coefficients for the backward filter step </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex21SmoothingCoefficients1dE">
+<span id="_CPPv3N6phepex21SmoothingCoefficients1dE"></span><span id="_CPPv2N6phepex21SmoothingCoefficients1dE"></span><span id="phepex::SmoothingCoefficients::d__std::array:double.2:"></span><span class="target" id="structphepex_1_1SmoothingCoefficients_1acb346110e873d9f3a7fd8dc975335570"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">array</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">double</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">2</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">d</span></span></span><a class="headerlink" href="#_CPPv4N6phepex21SmoothingCoefficients1dE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>denominator coefficients </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex32calculate_smoothing_coefficientsEd">
+<span id="_CPPv3N6phepex32calculate_smoothing_coefficientsEd"></span><span id="_CPPv2N6phepex32calculate_smoothing_coefficientsEd"></span><span id="phepex::calculate_smoothing_coefficients__double"></span><span class="target" id="namespacephepex_1af4f1c21caa4477276d135da874c4aec5"></span><a class="reference internal" href="#_CPPv4N6phepex21SmoothingCoefficientsE" title="phepex::SmoothingCoefficients"><span class="n"><span class="pre">SmoothingCoefficients</span></span></a><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">calculate_smoothing_coefficients</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">smoothing_fwhm</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex32calculate_smoothing_coefficientsEd" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Compute the smoothing coefficients for a given impulse-response FWHM (in samples). </p>
+<p>Requires <code class="docutils literal notranslate"><span class="pre">smoothing_fwhm</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> (it appears in a denominator, as sigma = fwhm/2.1); unchecked. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex19preprocess_waveformEPKNSt8uint16_tEiifPK21SmoothingCoefficientsffPfPf">
+<span id="_CPPv3N6phepex19preprocess_waveformEPKNSt8uint16_tEiifPK21SmoothingCoefficientsffPfPf"></span><span id="_CPPv2N6phepex19preprocess_waveformEPKNSt8uint16_tEiifPK21SmoothingCoefficientsffPfPf"></span><span id="phepex::preprocess_waveform__std::uint16_tCP.i.i.float.SmoothingCoefficientsCP.float.float.floatP.floatP"></span><span class="target" id="namespacephepex_1a4f495fad36a7c4668c0eba8d73cb20d7"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">preprocess_waveform</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint16_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">src</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_samples</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">upsampling</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">pole_zero</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N6phepex21SmoothingCoefficientsE" title="phepex::SmoothingCoefficients"><span class="n"><span class="pre">SmoothingCoefficients</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">smoothing</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offset</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">scale</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">out</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">scratch</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">nullptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex19preprocess_waveformEPKNSt8uint16_tEiifPK21SmoothingCoefficientsffPfPf" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Upsampling + pole-zero deconvolution of a single waveform, with optional Gaussian smoothing. </p>
+<p>Repeats each of the <code class="docutils literal notranslate"><span class="pre">n_samples</span></code> inputs <code class="docutils literal notranslate"><span class="pre">upsampling</span></code> times, subtracts <code class="docutils literal notranslate"><span class="pre">offset</span></code> and applies <code class="docutils literal notranslate"><span class="pre">scale</span></code>, corrects a single-pole decay <code class="docutils literal notranslate"><span class="pre">pole_zero</span></code>, and smooths with two <code class="docutils literal notranslate"><span class="pre">upsampling</span></code>-wide moving averages; when <code class="docutils literal notranslate"><span class="pre">smoothing</span> <span class="pre">!=</span> <span class="pre">nullptr</span></code> an additional Deriche IIR pass is applied. At <code class="docutils literal notranslate"><span class="pre">upsampling</span> <span class="pre">==</span> <span class="pre">1</span></code> both moving averages are width-1 (identity), leaving out[i] = scale*((src[i]-offset) - pole_zero*(src[i-1]-offset)) and out[0] = scale*(src[0]-offset); that degenerates to scale*(src - offset) only when <code class="docutils literal notranslate"><span class="pre">pole_zero</span> <span class="pre">==</span> <span class="pre">0</span></code>.</p>
+<p>Requires <code class="docutils literal notranslate"><span class="pre">upsampling</span> <span class="pre">&gt;=</span> <span class="pre">1</span></code>; smaller values are unchecked and read out of bounds. All arithmetic is float32; <code class="docutils literal notranslate"><span class="pre">offset</span></code>/<code class="docutils literal notranslate"><span class="pre">scale</span></code>/<code class="docutils literal notranslate"><span class="pre">pole_zero</span></code> are float on purpose (bit-exactness against ctapipe).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>src</strong> – input waveform of <code class="docutils literal notranslate"><span class="pre">n_samples</span></code> samples </p></li>
+<li><p><strong>smoothing</strong> – optional Deriche coefficients (see <a class="reference internal" href="#namespacephepex_1af4f1c21caa4477276d135da874c4aec5"><span class="std std-ref">calculate_smoothing_coefficients()</span></a>); nullptr disables smoothing </p></li>
+<li><p><strong>out</strong> – caller-allocated output of n_samples*upsampling floats </p></li>
+<li><p><strong>scratch</strong> – optional caller-provided workspace of at least n_samples*upsampling floats, used only when <code class="docutils literal notranslate"><span class="pre">smoothing</span> <span class="pre">!=</span> <span class="pre">nullptr</span></code>; if null a buffer is allocated internally for the duration of the call </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex19preprocess_waveformEPKfiifPK21SmoothingCoefficientsffPfPf">
+<span id="_CPPv3N6phepex19preprocess_waveformEPKfiifPK21SmoothingCoefficientsffPfPf"></span><span id="_CPPv2N6phepex19preprocess_waveformEPKfiifPK21SmoothingCoefficientsffPfPf"></span><span id="phepex::preprocess_waveform__floatCP.i.i.float.SmoothingCoefficientsCP.float.float.floatP.floatP"></span><span class="target" id="namespacephepex_1a7c345b60ee1d13a85c1933e1b75ee6cd"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">preprocess_waveform</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">src</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_samples</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">upsampling</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">pole_zero</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N6phepex21SmoothingCoefficientsE" title="phepex::SmoothingCoefficients"><span class="n"><span class="pre">SmoothingCoefficients</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">smoothing</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offset</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">scale</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">out</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">scratch</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">nullptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex19preprocess_waveformEPKfiifPK21SmoothingCoefficientsffPfPf" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex20preprocess_waveformsEPKNSt8uint16_tEiiiPKfNSt9ptrdiff_tEPK21SmoothingCoefficientsPKfNSt9ptrdiff_tEPKfNSt9ptrdiff_tEPfPf">
+<span id="_CPPv3N6phepex20preprocess_waveformsEPKNSt8uint16_tEiiiPKfNSt9ptrdiff_tEPK21SmoothingCoefficientsPKfNSt9ptrdiff_tEPKfNSt9ptrdiff_tEPfPf"></span><span id="_CPPv2N6phepex20preprocess_waveformsEPKNSt8uint16_tEiiiPKfNSt9ptrdiff_tEPK21SmoothingCoefficientsPKfNSt9ptrdiff_tEPKfNSt9ptrdiff_tEPfPf"></span><span id="phepex::preprocess_waveforms__std::uint16_tCP.i.i.i.floatCP.std::ptrdiff_t.SmoothingCoefficientsCP.floatCP.std::ptrdiff_t.floatCP.std::ptrdiff_t.floatP.floatP"></span><span class="target" id="namespacephepex_1ab21ec064fc267d24f9a714976d0518e8"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">preprocess_waveforms</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint16_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">src</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_rows</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_samples</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">upsampling</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">pole_zero</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ptrdiff_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">pole_zero_stride</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N6phepex21SmoothingCoefficientsE" title="phepex::SmoothingCoefficients"><span class="n"><span class="pre">SmoothingCoefficients</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">smoothing</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">offset</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ptrdiff_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offset_stride</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">scale</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ptrdiff_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">scale_stride</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">out</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">scratch</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">nullptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex20preprocess_waveformsEPKNSt8uint16_tEiiiPKfNSt9ptrdiff_tEPK21SmoothingCoefficientsPKfNSt9ptrdiff_tEPKfNSt9ptrdiff_tEPfPf" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Apply <a class="reference internal" href="#namespacephepex_1a4f495fad36a7c4668c0eba8d73cb20d7"><span class="std std-ref">preprocess_waveform()</span></a> to each of <code class="docutils literal notranslate"><span class="pre">n_rows</span></code> consecutive waveforms of <code class="docutils literal notranslate"><span class="pre">n_samples</span></code> samples, writing <code class="docutils literal notranslate"><span class="pre">n_rows</span> <span class="pre">*</span> <span class="pre">n_samples</span> <span class="pre">*</span> <span class="pre">upsampling</span></code> floats to caller-allocated <code class="docutils literal notranslate"><span class="pre">out</span></code>. </p>
+<p>Rows are contiguous on both sides (row <code class="docutils literal notranslate"><span class="pre">r</span></code> reads <code class="docutils literal notranslate"><span class="pre">src[r</span> <span class="pre">*</span> <span class="pre">n_samples]</span></code> and writes <code class="docutils literal notranslate"><span class="pre">out[r</span> <span class="pre">*</span> <span class="pre">n_samples</span> <span class="pre">*</span> <span class="pre">upsampling]</span></code>); strided views must be copied by the caller. <code class="docutils literal notranslate"><span class="pre">pole_zero</span></code>, <code class="docutils literal notranslate"><span class="pre">offset</span></code> and <code class="docutils literal notranslate"><span class="pre">scale</span></code> are read per row as <code class="docutils literal notranslate"><span class="pre">array[row</span> <span class="pre">*</span> <span class="pre">stride]</span></code>, so a stride of 0 broadcasts one value to every row and a stride of 1 selects a distinct per-row value.</p>
+<p>Rows are processed in fixed-width tiles, one row per SIMD lane, whenever the per-row work carries a latency-bound recurrence &amp;#8212; the upsampling running sums (<code class="docutils literal notranslate"><span class="pre">upsampling</span> <span class="pre">&gt;</span> <span class="pre">1</span></code>) and/or the Deriche IIR (<code class="docutils literal notranslate"><span class="pre">smoothing</span> <span class="pre">!=</span> <span class="pre">nullptr</span></code>) &amp;#8212; so that the recurrence is filled with independent rows; the gain exceeds the cost of the tile transpose. uint16 input is widened inside that transpose and so costs no more than float input. The one case without such a recurrence, <code class="docutils literal notranslate"><span class="pre">upsampling</span> <span class="pre">==</span> <span class="pre">1</span></code> with <code class="docutils literal notranslate"><span class="pre">smoothing</span> <span class="pre">==</span> <span class="pre">nullptr</span></code>, is a pole-zero stencil that already vectorises across samples and takes the per-row scalar path.</p>
+<p>Output is bit-identical to calling <a class="reference internal" href="#namespacephepex_1a4f495fad36a7c4668c0eba8d73cb20d7"><span class="std std-ref">preprocess_waveform()</span></a> once per row: arithmetic order and intermediate precision (float32 throughout, including the smoothing pass) are unchanged. Requires <code class="docutils literal notranslate"><span class="pre">upsampling</span> <span class="pre">&gt;=</span> <span class="pre">1</span></code>, unchecked as in <a class="reference internal" href="#namespacephepex_1a4f495fad36a7c4668c0eba8d73cb20d7"><span class="std std-ref">preprocess_waveform()</span></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>scratch</strong> – optional workspace for the tile buffers, at least preprocess_waveforms_scratch_size(n_samples, upsampling, smoothing) floats; avoids the per-call allocation when preprocessing many events in a loop. If null a buffer is allocated internally for the duration of the call. Unused on the scalar path. A caller-provided buffer must not be shared between concurrent calls; the null path is reentrant. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex20preprocess_waveformsEPKfiiiPKfNSt9ptrdiff_tEPK21SmoothingCoefficientsPKfNSt9ptrdiff_tEPKfNSt9ptrdiff_tEPfPf">
+<span id="_CPPv3N6phepex20preprocess_waveformsEPKfiiiPKfNSt9ptrdiff_tEPK21SmoothingCoefficientsPKfNSt9ptrdiff_tEPKfNSt9ptrdiff_tEPfPf"></span><span id="_CPPv2N6phepex20preprocess_waveformsEPKfiiiPKfNSt9ptrdiff_tEPK21SmoothingCoefficientsPKfNSt9ptrdiff_tEPKfNSt9ptrdiff_tEPfPf"></span><span id="phepex::preprocess_waveforms__floatCP.i.i.i.floatCP.std::ptrdiff_t.SmoothingCoefficientsCP.floatCP.std::ptrdiff_t.floatCP.std::ptrdiff_t.floatP.floatP"></span><span class="target" id="namespacephepex_1ae47ffbcfa27ecfac7324f7b142a56936"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">preprocess_waveforms</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">src</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_rows</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_samples</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">upsampling</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">pole_zero</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ptrdiff_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">pole_zero_stride</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N6phepex21SmoothingCoefficientsE" title="phepex::SmoothingCoefficients"><span class="n"><span class="pre">SmoothingCoefficients</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">smoothing</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">offset</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ptrdiff_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offset_stride</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">scale</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">ptrdiff_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">scale_stride</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">out</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">scratch</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">nullptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex20preprocess_waveformsEPKfiiiPKfNSt9ptrdiff_tEPK21SmoothingCoefficientsPKfNSt9ptrdiff_tEPKfNSt9ptrdiff_tEPfPf" title="Link to this definition">¶</a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex33preprocess_waveforms_scratch_sizeEiiPK21SmoothingCoefficients">
+<span id="_CPPv3N6phepex33preprocess_waveforms_scratch_sizeEiiPK21SmoothingCoefficients"></span><span id="_CPPv2N6phepex33preprocess_waveforms_scratch_sizeEiiPK21SmoothingCoefficients"></span><span id="phepex::preprocess_waveforms_scratch_size__i.i.SmoothingCoefficientsCP"></span><span class="target" id="namespacephepex_1a82d1748c57049148314dc3afedbe6e7a"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">preprocess_waveforms_scratch_size</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_samples</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">upsampling</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N6phepex21SmoothingCoefficientsE" title="phepex::SmoothingCoefficients"><span class="n"><span class="pre">SmoothingCoefficients</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">smoothing</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex33preprocess_waveforms_scratch_sizeEiiPK21SmoothingCoefficients" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Number of floats a <a class="reference internal" href="#namespacephepex_1ab21ec064fc267d24f9a714976d0518e8"><span class="std std-ref">preprocess_waveforms()</span></a> call needs in its <code class="docutils literal notranslate"><span class="pre">scratch</span></code> buffer for the given parameters. </p>
+<p>Returns 0 when <code class="docutils literal notranslate"><span class="pre">upsampling</span> <span class="pre">==</span> <span class="pre">1</span></code> and <code class="docutils literal notranslate"><span class="pre">smoothing</span> <span class="pre">==</span> <span class="pre">nullptr</span></code> (the per-row scalar path uses no tiles). Callers must obtain the size from this function rather than compute it, as it depends on the library’s build-time tile width. <code class="docutils literal notranslate"><span class="pre">smoothing</span></code> is read only for null-ness (the size does not depend on the coefficient values), matching the pointer passed to <a class="reference internal" href="#namespacephepex_1ab21ec064fc267d24f9a714976d0518e8"><span class="std std-ref">preprocess_waveforms()</span></a>. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex22preprocess_valid_rangeEifPK21SmoothingCoefficientsi">
+<span id="_CPPv3N6phepex22preprocess_valid_rangeEifPK21SmoothingCoefficientsi"></span><span id="_CPPv2N6phepex22preprocess_valid_rangeEifPK21SmoothingCoefficientsi"></span><span id="phepex::preprocess_valid_range__i.float.SmoothingCoefficientsCP.i"></span><span class="target" id="namespacephepex_1a5868d97ed20939f6e0352b6154d4faaa"></span><a class="reference internal" href="#_CPPv4N6phepex11SampleRangeE" title="phepex::SampleRange"><span class="n"><span class="pre">SampleRange</span></span></a><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">preprocess_valid_range</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">upsampling</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">pole_zero</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N6phepex21SmoothingCoefficientsE" title="phepex::SmoothingCoefficients"><span class="n"><span class="pre">SmoothingCoefficients</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">smoothing</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">num_samples</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex22preprocess_valid_rangeEifPK21SmoothingCoefficientsi" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Trustworthy (non-edge) sample range of <a class="reference internal" href="#namespacephepex_1a4f495fad36a7c4668c0eba8d73cb20d7"><span class="std std-ref">preprocess_waveform()</span></a>, as indices into its length <code class="docutils literal notranslate"><span class="pre">upsampling*num_samples</span></code> output. </p>
+<p>The two boxcars contaminate 2*(upsampling-1) samples at each end, a non-zero <code class="docutils literal notranslate"><span class="pre">pole_zero</span></code> adds <code class="docutils literal notranslate"><span class="pre">upsampling</span></code> more at the start, and a Deriche pass widens both margins by floor(fwhm). Returns {0, 0} when the margins meet or cross, i.e. when no sample is trustworthy. </p>
+</dd></dl>
+
+</section>
+<section id="clipping">
+<h2>Clipping<a class="headerlink" href="#clipping" title="Link to this heading">¶</a></h2>
+<p>Declared in <code class="docutils literal notranslate"><span class="pre">&lt;phepex/clip.hpp&gt;</span></code>.</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex13pos_soft_clipEPKfiiifiiPf">
+<span id="_CPPv3N6phepex13pos_soft_clipEPKfiiifiiPf"></span><span id="_CPPv2N6phepex13pos_soft_clipEPKfiiifiiPf"></span><span id="phepex::pos_soft_clip__floatCP.i.i.i.float.i.i.floatP"></span><span class="target" id="namespacephepex_1ae970d75cb8bb6d9c6992e07938f5544f"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">pos_soft_clip</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">waveforms</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_ch</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_pix</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_up</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">scale</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">sample_lo</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">sample_hi</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">out</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex13pos_soft_clipEPKfiiifiiPf" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Positive soft clip: max(y/(1+|y|), 0) with y = x/scale, applied over samples [sample_lo, sample_hi) of each (channel, pixel) waveform; samples outside that range are set to 0. </p>
+<p>The soft clip already bounds the result to (-1, 1), so only negatives are clamped (to 0).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>waveforms</strong> – input (n_ch, n_pix, n_up) float32 </p></li>
+<li><p><strong>scale</strong> – divisor applied before the clip; 0 yields +-inf/NaN, unchecked </p></li>
+<li><p><strong>sample_lo, sample_hi</strong> – half-open sample window; (0, 0) means the full trace. Bounds are used unchecked, so the caller must keep them within [0, n_up]. </p></li>
+<li><p><strong>out</strong> – caller-allocated n_ch*n_pix*n_up floats (fully written; 0 outside the window) </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="neighbour-peak-finding">
+<h2>Neighbour peak finding<a class="headerlink" href="#neighbour-peak-finding" title="Link to this heading">¶</a></h2>
+<p>Declared in <code class="docutils literal notranslate"><span class="pre">&lt;phepex/neighbor.hpp&gt;</span></code>.</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex21neighbor_peak_indicesEPKfiiiPKNSt7int32_tEPKNSt7int32_tEiPKNSt7uint8_tEiiPNSt7int64_tEPNSt7int32_tEPf">
+<span id="_CPPv3N6phepex21neighbor_peak_indicesEPKfiiiPKNSt7int32_tEPKNSt7int32_tEiPKNSt7uint8_tEiiPNSt7int64_tEPNSt7int32_tEPf"></span><span id="_CPPv2N6phepex21neighbor_peak_indicesEPKfiiiPKNSt7int32_tEPKNSt7int32_tEiPKNSt7uint8_tEiiPNSt7int64_tEPNSt7int32_tEPf"></span><span id="phepex::neighbor_peak_indices__floatCP.i.i.i.std::int32_tCP.std::int32_tCP.i.std::uint8_tCP.i.i.std::int64_tP.std::int32_tP.floatP"></span><span class="target" id="namespacephepex_1ac33d124a5e7666fa6fb8ece359941e7d"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">neighbor_peak_indices</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">waveforms</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_ch</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_pix</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_up</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">indptr</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">indices</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">local_weight</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint8_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">broken_pixels</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">sample_lo</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">sample_hi</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">int64_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">peak_out</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">neighbor_count</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">nullptr</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">scratch</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">nullptr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex21neighbor_peak_indicesEPKfiiiPKNSt7int32_tEPKNSt7int32_tEiPKNSt7uint8_tEiiPNSt7int64_tEPNSt7int32_tEPf" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Per-pixel argmax of the neighbour-summed waveform <code class="docutils literal notranslate"><span class="pre">waveforms[pixel]*local_weight</span> <span class="pre">+</span> <span class="pre">sum</span> <span class="pre">over</span> <span class="pre">non-broken</span> <span class="pre">neighbours</span></code>, searched over samples [sample_lo, sample_hi) and returned as an absolute index into the trace. </p>
+<p>First-max tie-break, float32 accumulation, no normalisation by the neighbour count (so this is a sum, not the average its ctapipe counterpart’s name suggests; the argmax is unaffected).</p>
+<p>By default (compile-time option PHEPEX_NEIGHBOR_PAIRWISE_SUM=1) neighbours are accumulated in pairs to halve the read-modify-write traffic on the accumulator (the micro-benchmark bottleneck), and for local_weight == 0 the accumulator is seeded from the first neighbour pair rather than a zeroed self*0 pass. Both change the float32 summation order, so the peak index is not bit-identical to a strictly sequential sum; it differs only where two samples are within ~1 ULP of the maximum. Building with PHEPEX_NEIGHBOR_PAIRWISE_SUM=0 selects the sequential sum (slower on the benchmarked aarch64 core, but bit-identical to a left-to-right accumulation in CSR order).</p>
+<p>Neighbours are given as a CSR adjacency (compressed sparse row: row pointers + column indices): pixel p’s neighbours are indices[indptr[p] .. indptr[p+1]).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>waveforms</strong> – input (n_ch, n_pix, n_up) float32 </p></li>
+<li><p><strong>indptr</strong> – CSR row pointers, length n_pix+1 </p></li>
+<li><p><strong>indices</strong> – CSR column indices (neighbour pixel ids), length indptr[n_pix] </p></li>
+<li><p><strong>local_weight</strong> – weight of the pixel’s own trace in the sum; 0 sums neighbours only </p></li>
+<li><p><strong>broken_pixels</strong> – (n_ch, n_pix) byte mask (nonzero =&gt; broken); broken neighbours are skipped. A byte mask (rather than bool*) lets callers pass contiguous byte storage directly without a bool aliasing hazard. The pixel’s own flag is not consulted &amp;#8212; a broken pixel still gets a peak index. </p></li>
+<li><p><strong>sample_lo, sample_hi</strong> – half-open search window; (0, 0) means the full trace. Bounds are used unchecked, so the caller must keep them within [0, n_up]. </p></li>
+<li><p><strong>peak_out</strong> – caller-allocated n_ch*n_pix int64 (argmax sample index per pixel) </p></li>
+<li><p><strong>neighbor_count</strong> – optional n_ch*n_pix int32 (caller-allocated); if non-null, gets the number of non-broken neighbours summed per pixel </p></li>
+<li><p><strong>scratch</strong> – optional caller-provided workspace of at least n_up floats; if null, a buffer is allocated internally for the duration of the call </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="charge-timing-extraction">
+<h2>Charge &amp; timing extraction<a class="headerlink" href="#charge-timing-extraction" title="Link to this heading">¶</a></h2>
+<p>Declared in <code class="docutils literal notranslate"><span class="pre">&lt;phepex/extract.hpp&gt;</span></code>.</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex19extract_around_peakEPKfiiiPKNSt7int64_tEiidPfPf">
+<span id="_CPPv3N6phepex19extract_around_peakEPKfiiiPKNSt7int64_tEiidPfPf"></span><span id="_CPPv2N6phepex19extract_around_peakEPKfiiiPKNSt7int64_tEiidPfPf"></span><span id="phepex::extract_around_peak__floatCP.i.i.i.std::int64_tCP.i.i.double.floatP.floatP"></span><span class="target" id="namespacephepex_1a5bae0c04e67879e1bee8213712cbf3c5"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">extract_around_peak</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">waveforms</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_ch</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_pix</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_up</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">int64_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">peak_index</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">width</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">shift</span></span>, <span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">sampling_rate_ghz</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">charge</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">peak_time</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex19extract_around_peakEPKfiiiPKNSt7int64_tEiidPfPf" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Window integration + amplitude-weighted peak time, per (channel, pixel). </p>
+<p>Sums the waveform over [peak-shift, peak-shift+width) (clamped to [0, n_up)) and computes the amplitude-weighted index centroid over the strictly-positive samples of that window, converted to ns by dividing by sampling_rate_ghz. Falls back to <code class="docutils literal notranslate"><span class="pre">peak_index</span></code> itself when the window holds no positive sample. float64 accumulation; float32 outputs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>waveforms</strong> – input (n_ch, n_pix, n_up) float32 </p></li>
+<li><p><strong>peak_index</strong> – (n_ch, n_pix) int64 peak sample index per pixel </p></li>
+<li><p><strong>width</strong> – window length in samples </p></li>
+<li><p><strong>shift</strong> – samples the window starts before the peak </p></li>
+<li><p><strong>sampling_rate_ghz</strong> – sample rate of <code class="docutils literal notranslate"><span class="pre">waveforms</span></code>, i.e. including any upsampling </p></li>
+<li><p><strong>charge</strong> – caller-allocated n_ch*n_pix float32 (integrated charge) </p></li>
+<li><p><strong>peak_time</strong> – caller-allocated n_ch*n_pix float32 (peak time, ns) </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex17adaptive_centroidEPKfiiiPKNSt7int64_tEdPf">
+<span id="_CPPv3N6phepex17adaptive_centroidEPKfiiiPKNSt7int64_tEdPf"></span><span id="_CPPv2N6phepex17adaptive_centroidEPKfiiiPKNSt7int64_tEdPf"></span><span id="phepex::adaptive_centroid__floatCP.i.i.i.std::int64_tCP.double.floatP"></span><span class="target" id="namespacephepex_1af650a1c5369c6dc29beaa337eb88ee50"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">adaptive_centroid</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">waveforms</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_ch</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_pix</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_up</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">int64_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">peak_index</span></span>, <span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">rel_descend_limit</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">centroids</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex17adaptive_centroidEPKfiiiPKNSt7int64_tEdPf" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Leading-edge weighted centroid (in sample units), per (channel, pixel): walks left then right from the peak while samples exceed rel_descend_limit*waveforms[peak], accumulating an amplitude-weighted index centroid. </p>
+<p>The threshold is fixed at the initial peak amplitude and not re-derived if a larger sample is met. Falls back to <code class="docutils literal notranslate"><span class="pre">peak_index</span></code> itself when it lies outside [0, n_up), the peak amplitude is negative, or the accumulated weight is 0. float64 accumulation; float32 output.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>waveforms</strong> – input (n_ch, n_pix, n_up) float32 </p></li>
+<li><p><strong>peak_index</strong> – (n_ch, n_pix) int64 peak sample index per pixel </p></li>
+<li><p><strong>rel_descend_limit</strong> – threshold as a fraction of the peak amplitude </p></li>
+<li><p><strong>centroids</strong> – caller-allocated n_ch*n_pix float32 (centroid, sample units) </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="waveform-generation">
+<h2>Waveform generation<a class="headerlink" href="#waveform-generation" title="Link to this heading">¶</a></h2>
+<p>Declared in <code class="docutils literal notranslate"><span class="pre">&lt;phepex/generate.hpp&gt;</span></code>.</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex18generate_waveformsEPKdPKdiiPKdiddiiddNSt8uint64_tEPf">
+<span id="_CPPv3N6phepex18generate_waveformsEPKdPKdiiPKdiddiiddNSt8uint64_tEPf"></span><span id="_CPPv2N6phepex18generate_waveformsEPKdPKdiiPKdiddiiddNSt8uint64_tEPf"></span><span id="phepex::generate_waveforms__doubleCP.doubleCP.i.i.doubleCP.i.double.double.i.i.double.double.std::uint64_t.floatP"></span><span class="target" id="namespacephepex_1a2d2229d0e74963626d038335e9f8a133"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">generate_waveforms</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">charge</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">time_ns</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_events</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_pix</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">reference_pulse</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_ref</span></span>, <span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">ref_sample_width_ns</span></span>, <span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">sample_width_ns</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_samples</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">upsampling</span></span>, <span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">nsb_rate_ghz</span></span>, <span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">electronic_noise</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">seed</span></span>, <span class="kt"><span class="pre">float</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">out</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex18generate_waveformsEPKdPKdiiPKdiddiiddNSt8uint64_tEPf" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Synthesize sampled waveforms from per-pixel (charge, peak_time): each pixel’s charge is deposited at its sub-sample peak time and convolved with the reference pulse shape; a temporally-distributed Poisson night-sky-background (NSB) process at <code class="docutils literal notranslate"><span class="pre">nsb_rate_ghz</span></code> and uncorrelated Gaussian electronic noise are added on top. </p>
+<p>Pixels with charge 0 contribute no signal deposit. Intended as a fast generator for testing/benchmarking extractors.</p>
+<p>Matches ctapipe’s WaveformModel for deposits inside the readout window and differs at the edges, where the deposit time is floor-snapped and pulses centred just outside the window still contribute their in-window tail instead of being dropped.</p>
+<p>
+Throws std::invalid_argument if <code class="docutils literal notranslate"><span class="pre">electronic_noise</span> <span class="pre">&lt;</span> <span class="pre">0</span></code> (a negative standard deviation is silently indistinguishable from a noiseless camera otherwise). </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>charge</strong> – (n_events, n_pix) float64 photo-electron charge per pixel </p></li>
+<li><p><strong>time_ns</strong> – (n_events, n_pix) float64 pulse peak time (ns) per pixel </p></li>
+<li><p><strong>reference_pulse</strong> – (n_ref) float64 single-channel reference pulse shape </p></li>
+<li><p><strong>ref_sample_width_ns</strong> – sample width of the reference pulse (ns) </p></li>
+<li><p><strong>sample_width_ns</strong> – readout sample width (ns) = 1 / sampling_rate </p></li>
+<li><p><strong>upsampling</strong> – internal upsampling used to place sub-sample deposits (e.g. 10) </p></li>
+<li><p><strong>nsb_rate_ghz</strong> – NSB rate in GHz (0 disables NSB). NSB p.e. are rendered with only the pulse-kernel taps carrying 99.99% of its integral, unlike the signal deposit, which uses the full kernel. </p></li>
+<li><p><strong>electronic_noise</strong> – standard deviation of the zero-mean Gaussian noise added independently to every output sample, in the units of <code class="docutils literal notranslate"><span class="pre">out</span></code> (p.e. of pulse integral per readout sample). 0 disables it and consumes no random numbers, leaving the output bit-identical to a build without noise. Must be &gt;= 0. </p></li>
+<li><p><strong>seed</strong> – RNG seed (per-event deterministic) </p></li>
+<li><p><strong>out</strong> – caller-allocated n_events*n_pix*n_samples float32, row-major (n_events, n_pix, n_samples)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex21generate_shower_imageERK11ShowerModelPKdPKdidNSt8uint64_tEPdPd">
+<span id="_CPPv3N6phepex21generate_shower_imageERK11ShowerModelPKdPKdidNSt8uint64_tEPdPd"></span><span id="_CPPv2N6phepex21generate_shower_imageERK11ShowerModelPKdPKdidNSt8uint64_tEPdPd"></span><span id="phepex::generate_shower_image__ShowerModelCR.doubleCP.doubleCP.i.double.std::uint64_t.doubleP.doubleP"></span><span class="target" id="namespacephepex_1ae9ea544aed502941db9c0888e16a7655"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-prename descclassname"><span class="n"><span class="pre">phepex</span></span><span class="p"><span class="pre">::</span></span></span><span class="sig-name descname"><span class="n"><span class="pre">generate_shower_image</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4N6phepex11ShowerModelE" title="phepex::ShowerModel"><span class="n"><span class="pre">ShowerModel</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">model</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">pix_x</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">pix_y</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">n_pix</span></span>, <span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">pixel_area_m2</span></span>, <span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">seed</span></span>, <span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">charge</span></span>, <span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">time_ns</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N6phepex21generate_shower_imageERK11ShowerModelPKdPKdidNSt8uint64_tEPdPd" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Fill per-pixel (charge, time_ns) for one artificial shower image, as input for <a class="reference internal" href="#namespacephepex_1a2d2229d0e74963626d038335e9f8a133"><span class="std std-ref">generate_waveforms()</span></a>. </p>
+<p>Charges are Poisson draws around <code class="docutils literal notranslate"><span class="pre">intensity_pe</span> <span class="pre">*</span> <span class="pre">pdf(x,</span> <span class="pre">y)</span> <span class="pre">*</span> <span class="pre">pixel_area_m2</span></code> (or that expectation rounded to the nearest integer, if <code class="docutils literal notranslate"><span class="pre">photon_statistics</span> <span class="pre">==</span> <span class="pre">false</span></code>), where pdf is a Gaussian of sigma <code class="docutils literal notranslate"><span class="pre">width_m</span></code> in the transverse coordinate times a skew-normal of scale/location derived from (<code class="docutils literal notranslate"><span class="pre">length_m</span></code>, <code class="docutils literal notranslate"><span class="pre">skewness</span></code>) in the longitudinal one. Times are linear in the longitudinal coordinate plus jitter drawn from [-time_jitter_ns, +time_jitter_ns]; they are written for every pixel, including those whose charge is 0 (which generate_waveforms skips). Assumes a uniform pixel area, and that the pixel size is small against <code class="docutils literal notranslate"><span class="pre">width_m</span></code> (the pdf is sampled at the pixel centre rather than integrated over the pixel).</p>
+<p>Throws std::invalid_argument unless <code class="docutils literal notranslate"><span class="pre">width_m</span> <span class="pre">&gt;</span> <span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">length_m</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> (both appear in a denominator), <code class="docutils literal notranslate"><span class="pre">intensity_pe</span> <span class="pre">&gt;=</span> <span class="pre">0</span></code>, <code class="docutils literal notranslate"><span class="pre">pixel_area_m2</span> <span class="pre">&gt;</span> <span class="pre">0</span></code> and <code class="docutils literal notranslate"><span class="pre">|skewness|</span> <span class="pre">&lt;</span> <span class="pre">0.995271746431</span></code>; each would otherwise give a NaN or negative Poisson mean, which is indistinguishable from a genuinely dim image in the output.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> – shower parameters </p></li>
+<li><p><strong>pix_x, pix_y</strong> – (n_pix) pixel centre coordinates (m) </p></li>
+<li><p><strong>pixel_area_m2</strong> – area of one pixel (m^2) </p></li>
+<li><p><strong>seed</strong> – RNG seed (deterministic, independent of <a class="reference internal" href="#namespacephepex_1a2d2229d0e74963626d038335e9f8a133"><span class="std std-ref">generate_waveforms()</span></a>) </p></li>
+<li><p><strong>charge</strong> – caller-allocated (n_pix) float64 output, p.e. per pixel </p></li>
+<li><p><strong>time_ns</strong> – caller-allocated (n_pix) float64 output, peak time (ns) per pixel </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11ShowerModelE">
+<span id="_CPPv3N6phepex11ShowerModelE"></span><span id="_CPPv2N6phepex11ShowerModelE"></span><span id="phepex::ShowerModel"></span><span class="target" id="structphepex_1_1ShowerModel"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ShowerModel</span></span></span><a class="headerlink" href="#_CPPv4N6phepex11ShowerModelE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>Parameters of a single artificial shower image, in camera-plane metres / radians / ns. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11ShowerModel12centroid_x_mE">
+<span id="_CPPv3N6phepex11ShowerModel12centroid_x_mE"></span><span id="_CPPv2N6phepex11ShowerModel12centroid_x_mE"></span><span id="phepex::ShowerModel::centroid_x_m__double"></span><span class="target" id="structphepex_1_1ShowerModel_1a6f1a2fe8c87141c2737e2df12befb47e"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">centroid_x_m</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N6phepex11ShowerModel12centroid_x_mE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>image centroid, x </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11ShowerModel12centroid_y_mE">
+<span id="_CPPv3N6phepex11ShowerModel12centroid_y_mE"></span><span id="_CPPv2N6phepex11ShowerModel12centroid_y_mE"></span><span id="phepex::ShowerModel::centroid_y_m__double"></span><span class="target" id="structphepex_1_1ShowerModel_1aa85018f68f26e5cfd0a9dd0e5cbdf663"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">centroid_y_m</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N6phepex11ShowerModel12centroid_y_mE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>image centroid, y </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11ShowerModel8length_mE">
+<span id="_CPPv3N6phepex11ShowerModel8length_mE"></span><span id="_CPPv2N6phepex11ShowerModel8length_mE"></span><span id="phepex::ShowerModel::length_m__double"></span><span class="target" id="structphepex_1_1ShowerModel_1a551db32e09c7b0f2f80c6c911c969384"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">length_m</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N6phepex11ShowerModel8length_mE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>major-axis standard deviation (preserved under the skew) </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11ShowerModel7width_mE">
+<span id="_CPPv3N6phepex11ShowerModel7width_mE"></span><span id="_CPPv2N6phepex11ShowerModel7width_mE"></span><span id="phepex::ShowerModel::width_m__double"></span><span class="target" id="structphepex_1_1ShowerModel_1a16a0aab3e51a6371a84468525550a3e8"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">width_m</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N6phepex11ShowerModel7width_mE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>minor-axis standard deviation (Gaussian sigma) </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11ShowerModel7psi_radE">
+<span id="_CPPv3N6phepex11ShowerModel7psi_radE"></span><span id="_CPPv2N6phepex11ShowerModel7psi_radE"></span><span id="phepex::ShowerModel::psi_rad__double"></span><span class="target" id="structphepex_1_1ShowerModel_1ac31140b9427adca8b36505f179a0e558"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">psi_rad</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N6phepex11ShowerModel7psi_radE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>major-axis rotation (0 = +x axis) </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11ShowerModel8skewnessE">
+<span id="_CPPv3N6phepex11ShowerModel8skewnessE"></span><span id="_CPPv2N6phepex11ShowerModel8skewnessE"></span><span id="phepex::ShowerModel::skewness__double"></span><span class="target" id="structphepex_1_1ShowerModel_1a7505b9448bee1ffa7a14f3836060d1b2"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">skewness</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N6phepex11ShowerModel8skewnessE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>skew along the major axis only; 0 = symmetric, |skewness| &lt; 0.995271746431 (the skew-normal’s limit) </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11ShowerModel12intensity_peE">
+<span id="_CPPv3N6phepex11ShowerModel12intensity_peE"></span><span id="_CPPv2N6phepex11ShowerModel12intensity_peE"></span><span id="phepex::ShowerModel::intensity_pe__double"></span><span class="target" id="structphepex_1_1ShowerModel_1ab1ee4a289b0d32fe5b0b4f4a71c3b921"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">intensity_pe</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N6phepex11ShowerModel12intensity_peE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>total expected photo-electrons in the image </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11ShowerModel22time_gradient_ns_per_mE">
+<span id="_CPPv3N6phepex11ShowerModel22time_gradient_ns_per_mE"></span><span id="_CPPv2N6phepex11ShowerModel22time_gradient_ns_per_mE"></span><span id="phepex::ShowerModel::time_gradient_ns_per_m__double"></span><span class="target" id="structphepex_1_1ShowerModel_1a14ba2977814ae21200b7e39dacd1efd6"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">time_gradient_ns_per_m</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N6phepex11ShowerModel22time_gradient_ns_per_mE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>d(peak time) / d(longitudinal distance) </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11ShowerModel17time_intercept_nsE">
+<span id="_CPPv3N6phepex11ShowerModel17time_intercept_nsE"></span><span id="_CPPv2N6phepex11ShowerModel17time_intercept_nsE"></span><span id="phepex::ShowerModel::time_intercept_ns__double"></span><span class="target" id="structphepex_1_1ShowerModel_1a73a87a9b33fdbfd17e8b3a695eec9f62"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">time_intercept_ns</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N6phepex11ShowerModel17time_intercept_nsE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>peak time at the centroid </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11ShowerModel14time_jitter_nsE">
+<span id="_CPPv3N6phepex11ShowerModel14time_jitter_nsE"></span><span id="_CPPv2N6phepex11ShowerModel14time_jitter_nsE"></span><span id="phepex::ShowerModel::time_jitter_ns__double"></span><span class="target" id="structphepex_1_1ShowerModel_1a3db38d571e373b9c6db2eb1c92e6721f"></span><span class="kt"><span class="pre">double</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">time_jitter_ns</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N6phepex11ShowerModel14time_jitter_nsE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>half-width of the uniform per-pixel time jitter </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N6phepex11ShowerModel17photon_statisticsE">
+<span id="_CPPv3N6phepex11ShowerModel17photon_statisticsE"></span><span id="_CPPv2N6phepex11ShowerModel17photon_statisticsE"></span><span id="phepex::ShowerModel::photon_statistics__b"></span><span class="target" id="structphepex_1_1ShowerModel_1a6819b168db38f257175c13a6a19bf65d"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">photon_statistics</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">true</span></span><a class="headerlink" href="#_CPPv4N6phepex11ShowerModel17photon_statisticsE" title="Link to this definition">¶</a><br /></dt>
+<dd><p>draw each pixel’s charge from a Poisson distribution around its expectation; with <code class="docutils literal notranslate"><span class="pre">false</span></code> the expectation is rounded to the nearest integer instead, which yields a smooth, hole-free image (the level set of a pdf) and consumes no random numbers for the charge </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="../python/index.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Python API</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="../getting-started.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Getting started</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Max-Planck-Institut für Kernphysik
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">C++ API</a><ul>
+<li><a class="reference internal" href="#waveform-preprocessing">Waveform preprocessing</a><ul>
+<li><a class="reference internal" href="#_CPPv4N6phepex11SampleRangeE"><code class="docutils literal notranslate"><span class="pre">phepex::SampleRange</span></code></a><ul>
+<li><a class="reference internal" href="#_CPPv4N6phepex11SampleRange2loE"><code class="docutils literal notranslate"><span class="pre">lo</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex11SampleRange2hiE"><code class="docutils literal notranslate"><span class="pre">hi</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#_CPPv4N6phepex21SmoothingCoefficientsE"><code class="docutils literal notranslate"><span class="pre">phepex::SmoothingCoefficients</span></code></a><ul>
+<li><a class="reference internal" href="#_CPPv4N6phepex21SmoothingCoefficients4fwhmE"><code class="docutils literal notranslate"><span class="pre">fwhm</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex21SmoothingCoefficients1nE"><code class="docutils literal notranslate"><span class="pre">n</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex21SmoothingCoefficients1mE"><code class="docutils literal notranslate"><span class="pre">m</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex21SmoothingCoefficients1dE"><code class="docutils literal notranslate"><span class="pre">d</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#_CPPv4N6phepex32calculate_smoothing_coefficientsEd"><code class="docutils literal notranslate"><span class="pre">calculate_smoothing_coefficients()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex19preprocess_waveformEPKNSt8uint16_tEiifPK21SmoothingCoefficientsffPfPf"><code class="docutils literal notranslate"><span class="pre">preprocess_waveform()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex19preprocess_waveformEPKfiifPK21SmoothingCoefficientsffPfPf"><code class="docutils literal notranslate"><span class="pre">preprocess_waveform()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex20preprocess_waveformsEPKNSt8uint16_tEiiiPKfNSt9ptrdiff_tEPK21SmoothingCoefficientsPKfNSt9ptrdiff_tEPKfNSt9ptrdiff_tEPfPf"><code class="docutils literal notranslate"><span class="pre">preprocess_waveforms()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex20preprocess_waveformsEPKfiiiPKfNSt9ptrdiff_tEPK21SmoothingCoefficientsPKfNSt9ptrdiff_tEPKfNSt9ptrdiff_tEPfPf"><code class="docutils literal notranslate"><span class="pre">preprocess_waveforms()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex33preprocess_waveforms_scratch_sizeEiiPK21SmoothingCoefficients"><code class="docutils literal notranslate"><span class="pre">preprocess_waveforms_scratch_size()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex22preprocess_valid_rangeEifPK21SmoothingCoefficientsi"><code class="docutils literal notranslate"><span class="pre">preprocess_valid_range()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#clipping">Clipping</a><ul>
+<li><a class="reference internal" href="#_CPPv4N6phepex13pos_soft_clipEPKfiiifiiPf"><code class="docutils literal notranslate"><span class="pre">pos_soft_clip()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#neighbour-peak-finding">Neighbour peak finding</a><ul>
+<li><a class="reference internal" href="#_CPPv4N6phepex21neighbor_peak_indicesEPKfiiiPKNSt7int32_tEPKNSt7int32_tEiPKNSt7uint8_tEiiPNSt7int64_tEPNSt7int32_tEPf"><code class="docutils literal notranslate"><span class="pre">neighbor_peak_indices()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#charge-timing-extraction">Charge &amp; timing extraction</a><ul>
+<li><a class="reference internal" href="#_CPPv4N6phepex19extract_around_peakEPKfiiiPKNSt7int64_tEiidPfPf"><code class="docutils literal notranslate"><span class="pre">extract_around_peak()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex17adaptive_centroidEPKfiiiPKNSt7int64_tEdPf"><code class="docutils literal notranslate"><span class="pre">adaptive_centroid()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#waveform-generation">Waveform generation</a><ul>
+<li><a class="reference internal" href="#_CPPv4N6phepex18generate_waveformsEPKdPKdiiPKdiddiiddNSt8uint64_tEPf"><code class="docutils literal notranslate"><span class="pre">generate_waveforms()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex21generate_shower_imageERK11ShowerModelPKdPKdidNSt8uint64_tEPdPd"><code class="docutils literal notranslate"><span class="pre">generate_shower_image()</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex11ShowerModelE"><code class="docutils literal notranslate"><span class="pre">phepex::ShowerModel</span></code></a><ul>
+<li><a class="reference internal" href="#_CPPv4N6phepex11ShowerModel12centroid_x_mE"><code class="docutils literal notranslate"><span class="pre">centroid_x_m</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex11ShowerModel12centroid_y_mE"><code class="docutils literal notranslate"><span class="pre">centroid_y_m</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex11ShowerModel8length_mE"><code class="docutils literal notranslate"><span class="pre">length_m</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex11ShowerModel7width_mE"><code class="docutils literal notranslate"><span class="pre">width_m</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex11ShowerModel7psi_radE"><code class="docutils literal notranslate"><span class="pre">psi_rad</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex11ShowerModel8skewnessE"><code class="docutils literal notranslate"><span class="pre">skewness</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex11ShowerModel12intensity_peE"><code class="docutils literal notranslate"><span class="pre">intensity_pe</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex11ShowerModel22time_gradient_ns_per_mE"><code class="docutils literal notranslate"><span class="pre">time_gradient_ns_per_m</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex11ShowerModel17time_intercept_nsE"><code class="docutils literal notranslate"><span class="pre">time_intercept_ns</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex11ShowerModel14time_jitter_nsE"><code class="docutils literal notranslate"><span class="pre">time_jitter_ns</span></code></a></li>
+<li><a class="reference internal" href="#_CPPv4N6phepex11ShowerModel17photon_statisticsE"><code class="docutils literal notranslate"><span class="pre">photon_statistics</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=6bf55bcb"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../_static/version-switcher.js?v=d7f17dd4"></script>
+    <script src="../_static/slides-viewer.js?v=abc7ccca"></script>
+    </body>
+</html>

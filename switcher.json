@@ -1,0 +1,27 @@
+[
+  {
+    "name": "latest",
+    "version": "latest",
+    "url": "https://phepex.github.io/phepex/latest/"
+  },
+  {
+    "name": "dev",
+    "version": "dev",
+    "url": "https://phepex.github.io/phepex/dev/"
+  },
+  {
+    "name": "v0.2.2",
+    "version": "v0.2.2",
+    "url": "https://phepex.github.io/phepex/v0.2.2/"
+  },
+  {
+    "name": "v0.2.1",
+    "version": "v0.2.1",
+    "url": "https://phepex.github.io/phepex/v0.2.1/"
+  },
+  {
+    "name": "v0.2.0",
+    "version": "v0.2.0",
+    "url": "https://phepex.github.io/phepex/v0.2.0/"
+  }
+]
