@@ -3,12 +3,6 @@
 The `phepex` package: numpy kernel wrappers, the C++ waveform generator, and the
 ctapipe-integrated `FastFlashCamExtractor`.
 
-## Package overview
-
-```{eval-rst}
-.. automodule:: phepex
-```
-
 ## Kernels (numpy wrappers)
 
 Thin numpy-friendly wrappers over the compiled `phepex._core` kernels; these depend only on
